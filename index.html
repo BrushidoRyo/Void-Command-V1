@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Void Command // Army Builder</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#080b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Void Command">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+:root{
+  --bg:#080b10;
+  --panel:#0e1420;
+  --panel2:#121a29;
+  --line:#1e2b3d;
+  --text:#dbe6f2;
+  --dim:#6b7f96;
+  --mineral:#6fd1ff;
+  --gas:#5fe3a0;
+  --shield:#8fd3ff;
+  --warn:#ff6a5f;
+  --accent:#4fa8ff;
+  --accent-dim:#1c3a5e;
+  --accent-rgb:79,168,255;
+  --font-display:'Share Tech Mono', ui-monospace, 'Courier New', monospace;
+  --font-body:'Inter', -apple-system, system-ui, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+body{
+  background:
+    radial-gradient(ellipse at top, #0d1826 0%, #080b10 55%),
+    repeating-linear-gradient(0deg, rgba(var(--accent-rgb),0.02) 0px, rgba(var(--accent-rgb),0.02) 1px, transparent 1px, transparent 3px);
+  min-height:100vh;
+  padding-bottom:60px;
+}
+.scanline{
+  position:fixed; inset:0; pointer-events:none; z-index:50;
+  background:linear-gradient(rgba(var(--accent-rgb),0.015) 50%, transparent 50%);
+  background-size:100% 4px;
+  opacity:0.5;
+}
+.hud{
+  position:sticky; top:0; z-index:40;
+  display:flex; gap:0; overflow-x:auto;
+  background:linear-gradient(180deg,#0c1119 0%, #0a0d13 100%);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.hud-item{ flex:1; min-width:80px; padding:9px 10px 8px; border-right:1px solid var(--line); font-family:var(--font-display); }
+.hud-label{font-size:9px; letter-spacing:1.5px; color:var(--dim); text-transform:uppercase;}
+.hud-value{font-size:15px; font-weight:700; margin-top:2px;}
+.hud-value.mineral{color:var(--mineral);}
+.hud-value.gas{color:var(--gas);}
+.hud-value.over{color:var(--warn);}
+.hud-bar{height:3px; background:var(--line); margin-top:5px; border-radius:2px; overflow:hidden;}
+.hud-bar-fill{height:100%; transition:width .3s;}
+.hud-bar-fill.mineral{background:var(--mineral);}
+.hud-bar-fill.gas{background:var(--gas);}
+.hud-bar-fill.over{background:var(--warn);}
+
+header.title{ padding:22px 16px 10px; text-align:center; }
+header.title h1{
+  font-family:var(--font-display); font-size:22px; letter-spacing:3px; margin:0;
+  text-transform:uppercase; color:#fff; text-shadow:0 0 18px rgba(var(--accent-rgb),.5);
+}
+header.title .sub{ font-size:11px; color:var(--dim); letter-spacing:2px; margin-top:4px; text-transform:uppercase; }
+
+.wrap{max-width:640px; margin:0 auto; padding:0 14px;}
+section{margin-top:26px;}
+.section-eyebrow{
+  font-family:var(--font-display); font-size:11px; color:var(--accent); letter-spacing:2px; text-transform:uppercase;
+  display:flex; align-items:center; gap:8px; margin-bottom:10px;
+}
+.section-eyebrow::before{content:''; width:14px; height:1px; background:var(--accent);}
+.section-eyebrow::after{content:''; flex:1; height:1px; background:var(--line);}
+
+.chiprow{display:flex; gap:8px; flex-wrap:wrap;}
+.chip{
+  padding:8px 14px; border-radius:3px; border:1px solid var(--line);
+  background:var(--panel); color:var(--text); font-family:var(--font-display);
+  font-size:13px; cursor:pointer; letter-spacing:.5px;
+}
+.chip.active{border-color:var(--accent); background:var(--accent-dim); color:#fff;}
+.chip.custom-input{display:flex; align-items:center; gap:6px;}
+.chip.custom-input input{ width:64px; background:transparent; border:none; color:var(--text); font-family:var(--font-display); font-size:13px; outline:none; }
+
+.faction-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.faction-card{
+  border:1px solid var(--line); background:var(--panel); border-radius:4px; padding:12px 8px;
+  text-align:center; cursor:pointer; position:relative; overflow:hidden;
+}
+.faction-card.active{border-color:var(--fc-accent, var(--accent)); box-shadow:0 0 0 1px var(--fc-accent, var(--accent)) inset, 0 0 22px -6px var(--fc-accent, var(--accent));}
+.faction-card .emblem{font-size:22px; margin-bottom:4px; color:var(--fc-accent, var(--accent));}
+.faction-card .fname{font-family:var(--font-display); font-size:12px; letter-spacing:1px; color:#fff;}
+.faction-card .ftag{font-size:9px; color:var(--dim); margin-top:3px; line-height:1.3;}
+
+.subfaction-note{
+  font-size:12px; color:var(--dim); background:var(--panel); border:1px dashed var(--line);
+  border-radius:4px; padding:9px 11px; margin-top:10px; line-height:1.5;
+}
+.slot-chip{
+  padding:7px 12px; border-radius:3px; border:1px solid var(--line);
+  background:var(--panel); font-family:var(--font-display); font-size:12px; letter-spacing:.5px;
+}
+.slot-chip .slot-role{color:var(--dim); font-size:9px; letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:2px;}
+.slot-chip .slot-count{color:var(--text);}
+.slot-chip.full .slot-count{color:var(--warn);}
+.kw{color:var(--accent); text-decoration:underline dotted; cursor:pointer;}
+.kw:hover{color:#fff;}
+#kwModal{
+  display:none; position:fixed; inset:0; z-index:100; background:rgba(3,6,10,.75);
+  align-items:center; justify-content:center; padding:20px;
+}
+#kwModal .kwbox{
+  background:var(--panel2); border:1px solid var(--accent); border-radius:8px; padding:18px;
+  max-width:400px; width:100%; box-shadow:0 0 40px rgba(0,0,0,.6);
+}
+#kwModal .kwtitle{font-family:var(--font-display); font-size:14px; color:#fff; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+#kwModal .kwbadge{font-size:9px; background:var(--warn); color:#1a0505; padding:2px 6px; border-radius:2px; font-family:var(--font-display); display:inline-block;}
+#kwModal .kwtext{font-size:13px; color:var(--text); line-height:1.6;}
+#kwModal button{margin-top:14px; background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;}
+
+.menu-grid{display:grid; grid-template-columns:1fr; gap:12px; margin-top:34px;}
+.menu-card{
+  position:relative; border:1px solid var(--line); background:var(--panel); border-radius:8px;
+  padding:18px 16px; cursor:pointer; transition:border-color .15s;
+}
+.menu-card.active:hover{border-color:var(--accent);}
+.menu-card.active{cursor:pointer;}
+.menu-card.locked{opacity:.45; cursor:not-allowed;}
+.menu-icon{font-size:26px; margin-bottom:8px;}
+.menu-name{font-family:var(--font-display); font-size:15px; letter-spacing:1px; color:#fff; text-transform:uppercase; margin-bottom:4px;}
+.menu-desc{font-size:12px; color:var(--dim); line-height:1.5;}
+.menu-lock{position:absolute; top:12px; right:12px; font-size:9px; font-family:var(--font-display); letter-spacing:1px; background:var(--line); color:var(--dim); padding:3px 7px; border-radius:2px; text-transform:uppercase;}
+#backToMenuBtn{
+  position:absolute; left:14px; top:22px; background:none; border:1px solid var(--line); color:var(--dim);
+  font-family:var(--font-display); font-size:11px; padding:6px 10px; border-radius:4px; cursor:pointer; letter-spacing:.5px;
+}
+#backToMenuBtn:hover{color:#fff; border-color:var(--accent);}
+header.title{position:relative;}
+
+.gallery-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:8px;}
+.gallery-thumb{
+  position:relative; aspect-ratio:1; border-radius:6px; overflow:hidden; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel);
+}
+.gallery-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.gallery-empty{grid-column:1/-1; text-align:center; color:var(--dim); font-size:13px; padding:30px 10px; border:1px dashed var(--line); border-radius:6px;}
+
+.card-option{ border:1px solid var(--line); background:var(--panel); border-radius:5px; padding:12px; margin-bottom:8px; cursor:pointer; }
+.card-option.selected{border-color:var(--accent); background:var(--panel2);}
+.card-option .co-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;}
+.card-option .co-name{font-weight:700; font-size:14px; color:#fff;}
+.card-option .co-cp{font-family:var(--font-display); font-size:11px; color:var(--accent); white-space:nowrap;}
+.card-option .co-slots{font-size:11px; color:var(--dim); margin-top:4px;}
+.card-option .co-ability{font-size:12px; color:var(--text); margin-top:6px; line-height:1.45; opacity:.9;}
+.card-option .co-gasrow{display:flex; align-items:center; gap:6px; margin-top:8px;}
+.gasinput{
+  width:56px; background:var(--panel2); border:1px solid var(--line); color:var(--gas);
+  font-family:var(--font-display); font-size:12px; border-radius:3px; padding:3px 5px; text-align:right;
+}
+.gasinput.pts{color:var(--mineral);}
+
+.unit-card{ border:1px solid var(--line); background:var(--panel); border-radius:5px; padding:12px; margin-bottom:10px; }
+.unit-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.unit-name{font-weight:700; font-size:15px; color:#fff;}
+.unit-role{
+  font-family:var(--font-display); font-size:9px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--accent); border:1px solid var(--accent-dim); padding:2px 6px; border-radius:2px; white-space:nowrap;
+}
+.unit-traits{font-size:11px; color:var(--dim); margin-top:2px;}
+.stat-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:9px;}
+.stat{font-family:var(--font-display); font-size:11px; color:var(--text);}
+.stat.shield{color:var(--shield);}
+.stat b{color:var(--dim); font-weight:400; margin-right:3px;}
+.unit-options{margin-top:10px; display:flex; flex-direction:column; gap:6px;}
+.unit-opt{ display:flex; justify-content:space-between; align-items:center; border:1px solid var(--line); border-radius:4px; padding:7px 9px; font-size:12px; background:var(--panel2); flex-wrap:wrap; gap:6px; }
+.unit-opt .opt-label{color:var(--text);}
+.unit-opt .opt-right{display:flex; align-items:center; gap:6px;}
+.unit-opt button{ background:var(--accent); color:#04101c; border:none; border-radius:3px; padding:5px 10px; font-family:var(--font-display); font-size:11px; cursor:pointer; }
+.unit-opt button:active{transform:scale(.96);}
+.unit-upgrades{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5; border-top:1px dashed var(--line); padding-top:8px;}
+.unit-upgrades .u-line{margin-top:2px;}
+.unit-upgrades .u-line b{color:var(--text); font-weight:600;}
+
+.roster-empty{ text-align:center; color:var(--dim); font-size:13px; padding:26px 10px; border:1px dashed var(--line); border-radius:6px; }
+.roster-item{ display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:9px 11px; margin-bottom:7px; }
+.roster-item .ri-main{font-size:13px;}
+.roster-item .ri-main .ri-name{font-weight:700; color:#fff;}
+.roster-item .ri-main .ri-sub{font-size:11px; color:var(--dim);}
+.roster-item .ri-cost{font-family:var(--font-display); font-size:12px; color:var(--mineral); margin-right:10px; white-space:nowrap;}
+.roster-item .ri-cost.gascost{color:var(--gas);}
+.roster-item button.rm{ background:none; border:1px solid var(--line); color:var(--warn); border-radius:3px; width:26px; height:26px; cursor:pointer; font-size:14px; line-height:1; }
+.roster-group-label{font-family:var(--font-display); font-size:10px; letter-spacing:1.5px; color:var(--dim); margin:14px 0 6px; text-transform:uppercase;}
+
+.actions{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;}
+.actions button{ flex:1; min-width:100px; padding:11px; border-radius:4px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-family:var(--font-display); font-size:12px; letter-spacing:1px; cursor:pointer; }
+.actions button.primary{background:var(--accent); color:#04101c; border-color:var(--accent); font-weight:700;}
+.actions button.danger{border-color:var(--warn); color:var(--warn); background:transparent;}
+
+.disclaimer{ font-size:11px; color:var(--dim); text-align:center; margin-top:30px; line-height:1.6; padding:0 10px; }
+#exportBox{ width:100%; margin-top:10px; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:10px; font-family:var(--font-display); font-size:11px; min-height:140px; display:none; }
+
+@media print{ .hud, .actions, section.builder-controls{display:none !important;} body{background:#fff; color:#000;} }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<div id="menuView">
+  <header class="title" style="padding-top:60px;">
+    <h1>Void Command</h1>
+    <div class="sub">StarCraft: The Miniatures Game — Compagnon non-officiel</div>
+  </header>
+  <div class="wrap" style="max-width:520px;">
+    <div class="menu-grid">
+      <div class="menu-card active" onclick="showBuilder()">
+        <div class="menu-icon">⚔</div>
+        <div class="menu-name">Army Builder</div>
+        <div class="menu-desc">Construis ta liste — Terran, Protoss, Zerg. Emplacements, améliorations, coûts en Minerai/Gaz.</div>
+      </div>
+      <div class="menu-card locked">
+        <div class="menu-lock">Bientôt</div>
+        <div class="menu-icon">📖</div>
+        <div class="menu-name">Référence des règles</div>
+        <div class="menu-desc">Glossaire des mots-clés et rappels de phases, consultables hors liste.</div>
+      </div>
+      <div class="menu-card active" onclick="showGallery()">
+        <div class="menu-icon">🖼</div>
+        <div class="menu-name">Galerie d'images</div>
+        <div class="menu-desc">Tes photos de figurines peintes — stockées uniquement sur cet appareil.</div>
+      </div>
+      <div class="menu-card active" onclick="showLists()">
+        <div class="menu-icon">📋</div>
+        <div class="menu-name">Mes listes sauvegardées</div>
+        <div class="menu-desc">Retrouve, charge ou supprime tes listes enregistrées.</div>
+      </div>
+      <div class="menu-card active" onclick="showEvents()">
+        <div class="menu-icon">🗺</div>
+        <div class="menu-name">Événements</div>
+        <div class="menu-desc">Trouve des tournois et parties près de chez toi, et les ressources communautaires.</div>
+      </div>
+    </div>
+    <div class="disclaimer" style="margin-top:26px;">
+      Outil communautaire non-officiel, basé sur les fiches et le livret de règles publics d'Archon Studio.
+    </div>
+  </div>
+</div>
+
+<div id="listsView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn2" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Mes listes</h1>
+    <div class="sub">Listes sauvegardées sur cet appareil</div>
+  </header>
+  <div class="wrap" style="max-width:520px;">
+    <div class="actions" style="margin-bottom:18px;">
+      <button class="primary" onclick="newList()">+ Nouvelle liste</button>
+    </div>
+    <div id="listsContainer"></div>
+  </div>
+</div>
+
+<div id="galleryView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn3" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Galerie d'images</h1>
+    <div class="sub">Tes photos de figurines peintes — stockées uniquement sur cet appareil</div>
+  </header>
+  <div class="wrap" style="max-width:640px;">
+    <div class="actions" style="margin-bottom:18px;">
+      <input type="file" id="galleryFileInput" accept="image/*" multiple onchange="handleGalleryUpload(event)" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
+      <label class="chip active" style="cursor:pointer; display:inline-block;" onclick="var i=document.getElementById('galleryFileInput'); if(i && i.click) i.click();">
+        + Ajouter des photos
+      </label>
+    </div>
+    <div id="galleryStatus" style="font-size:12px; color:var(--dim); margin-bottom:12px;"></div>
+    <div id="galleryGrid" class="gallery-grid"></div>
+    <div class="disclaimer" style="margin-top:20px;">
+      Ces images sont stockées uniquement dans ton navigateur (localStorage), sur cet appareil — elles ne sont ni envoyées ni partagées. Les photos sont compressées automatiquement pour limiter l'espace utilisé.
+    </div>
+  </div>
+
+  <div id="lightbox" onclick="closeLightbox()" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(3,6,10,.9); align-items:center; justify-content:center; padding:20px; flex-direction:column;">
+    <img id="lightboxImg" style="max-width:100%; max-height:80vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
+    <div style="margin-top:14px; display:flex; gap:8px;">
+      <button onclick="event.stopPropagation(); deleteGalleryImage(currentLightboxId)" style="background:none; border:1px solid var(--warn); color:var(--warn); border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Supprimer</button>
+      <button onclick="closeLightbox()" style="background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="eventsView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn4" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Événements</h1>
+    <div class="sub">Tournois, parties et ressources communautaires</div>
+  </header>
+  <div class="wrap" style="max-width:520px;">
+
+    <div class="section-eyebrow">Trouver près de chez toi</div>
+    <div class="actions" style="margin-bottom:8px;">
+      <button class="primary" onclick="findEventsNearMe()">📍 Tournois près de chez moi</button>
+    </div>
+    <div id="eventsLocStatus" style="font-size:12px; color:var(--dim); margin-bottom:20px;"></div>
+
+    <div class="section-eyebrow">Ressources communautaires</div>
+    <div class="card-option" onclick="window.open('https://www.sctmg-vault.com/events','_blank')">
+      <div class="co-top"><div class="co-name">StarCraft Vault — Events</div></div>
+      <div class="co-ability">Tracker de tournois communautaire (non-officiel) : parties, ligues, classements par région.</div>
+    </div>
+    <div class="card-option" onclick="window.open('https://maxireves.fr','_blank')">
+      <div class="co-top"><div class="co-name">Maxi Rêves (Abbeville)</div></div>
+      <div class="co-ability">Boutique partenaire — précommandes et éventuelles parties/démos en magasin.</div>
+    </div>
+    <div class="card-option" onclick="window.open('https://www.facebook.com/StarCraftTMG','_blank')">
+      <div class="co-top"><div class="co-name">Page Facebook officielle</div></div>
+      <div class="co-ability">Annonces d'Archon Studio, souvent relayées par les boutiques organisant des soirées jeu.</div>
+    </div>
+    <div class="card-option" onclick="window.open('https://discord.gg/XxUrBN9UnT','_blank')">
+      <div class="co-top"><div class="co-name">Discord communautaire (SC Vault)</div></div>
+      <div class="co-ability">Discussion, recherche d'adversaires et annonces de tournois entre joueurs.</div>
+    </div>
+
+    <div class="disclaimer" style="margin-top:22px;">
+      Il n'existe pas encore de calendrier d'événements officiel centralisé (la page "Tournaments" d'Archon Studio est vide à ce jour) — ces liens pointent vers les meilleures ressources communautaires disponibles. Le bouton de géolocalisation ouvre une recherche Google Maps près de ta position ; rien n'est envoyé ni stocké, la recherche s'ouvre directement dans ton navigateur.
+    </div>
+  </div>
+</div>
+
+<div id="builderView" style="display:none;">
+<div class="hud" id="hud"></div>
+
+<header class="title">
+  <button id="backToMenuBtn" onclick="showMenu()" title="Retour au menu">← Menu</button>
+  <h1>Void Command</h1>
+  <div class="sub">Army Builder · StarCraft: The Miniatures Game</div>
+</header>
+
+<div class="wrap">
+
+  <section class="builder-controls">
+    <div class="section-eyebrow">Format de partie</div>
+    <div class="chiprow" id="sizeRow"></div>
+  </section>
+
+  <section class="builder-controls">
+    <div class="section-eyebrow">Faction</div>
+    <div class="faction-grid" id="factionGrid"></div>
+  </section>
+
+  <section class="builder-controls" id="factionCardSection">
+    <div class="section-eyebrow">Carte de faction</div>
+    <div id="factionCardList"></div>
+  </section>
+
+  <section class="builder-controls" id="tacticalSection">
+    <div class="section-eyebrow">Cartes tactiques (débloquent les emplacements d'unités)</div>
+    <div id="tacticalList"></div>
+  </section>
+
+  <section class="builder-controls" id="unitSection">
+    <div class="section-eyebrow">Emplacements d'armée</div>
+    <div id="slotsPanel" class="chiprow" style="margin-bottom:14px;"></div>
+    <div class="section-eyebrow">Unités disponibles</div>
+    <div id="unitList"></div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">Ta liste <span id="currentListName" style="color:var(--dim); text-transform:none; letter-spacing:0; font-family:var(--font-body);"></span></div>
+    <div id="rosterBox"></div>
+    <div class="actions">
+      <button class="primary" onclick="openSaveModal()">💾 Sauvegarder</button>
+      <button onclick="doExport()">Exporter le texte</button>
+      <button onclick="window.print()">Imprimer</button>
+      <button class="danger" onclick="resetList()">Réinitialiser</button>
+    </div>
+    <textarea id="exportBox" readonly></textarea>
+  </section>
+
+  <div id="saveModal" onclick="closeSaveModal()" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(3,6,10,.75); align-items:center; justify-content:center; padding:20px;">
+    <div class="kwbox" onclick="event.stopPropagation()">
+      <div class="kwtitle">Sauvegarder la liste</div>
+      <input id="saveNameInput" type="text" placeholder="Nom de la liste" style="width:100%; box-sizing:border-box; background:var(--panel); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius:4px; font-family:var(--font-body); font-size:14px; margin-top:6px;">
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button onclick="confirmSave()">Enregistrer</button>
+        <button onclick="closeSaveModal()" style="background:none; border:1px solid var(--line); color:var(--dim);">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    Statistiques, capacités et emplacements d'armée : sources officielles Archon Studio (fiches P2P StarCraft-TMG, mai 2026).<br>
+    Coûts en Minerai et en Gaz : préremplis pour le Terran (site communautaire Stimpacked, recoupé avec les fiches officielles) — à confirmer pour Protoss et Zerg avec tes cartes physiques ou l'appli Command Center. Tous les champs de coût sont éditables, clique dessus pour corriger.
+  </div>
+
+  <div class="actions" style="margin-top:16px; margin-bottom:30px;">
+    <button onclick="showMenu()">← Retour au menu</button>
+    <button onclick="showLists()">📋 Voir mes listes</button>
+  </div>
+
+  <div id="kwModal" onclick="closeKeyword()">
+    <div class="kwbox" onclick="event.stopPropagation()">
+      <div class="kwtitle"><span id="kwModalTitle"></span><span id="kwModalBadge" class="kwbadge">à vérifier</span></div>
+      <div class="kwtext" id="kwModalText"></div>
+      <button onclick="closeKeyword()">Fermer</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+/* ===================== DONNÉES ===================== */
+/* Sources : fiches "P2P Card Sheets" officielles d'Archon Studio (starcraft-tmg.com/downloads), mai 2026.
+   Coûts en points (Minerai/Gaz) recoupés avec stimpacked.com quand disponibles ; sinon laissés éditables (null). */
+
+const FACTIONS = {
+  terran: {
+    label:"Terran", tagline:"Adapte. Stimule. Survis.", emblem:"⛨", accent:"#4fa8ff", accentDim:"#1c3a5e",
+    abilityCurrency:"PC",
+    factionCards:[
+      {id:"raiders", name:"Raynor's Raiders", cp:1, gas:0, slots:"Basique ×3 · Héros ×1 · Soutien ×1 · Air ×1",
+        ability:"Rapid Ingress — Place un Drone de Défense Ponctuelle ami n'importe où sur la table, à plus de 1\" de tout modèle ennemi. Retire cette unité en fin de Round."},
+      {id:"armedforces", name:"Terran Armed Forces", cp:1, gas:0, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
+        ability:"Tactical Retreat — L'unité active ignore la pénalité de Désengagement jusqu'à la fin du Round."}
+    ],
+    tacticalCards:[
+      {id:"academy", name:"Academy", gas:35, cp:1, unique:false, req:"Soutien ×2", ability:"Une fois par Round, quand une unité de Soutien amie active une Capacité Spéciale à coût PC, réduisez son coût de 1."},
+      {id:"armory", name:"Armory", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"La première Arme à Distance de l'unité Mécanique active gagne COUP CRITIQUE (1)."},
+      {id:"barracks", name:"Barracks", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"L'unité Biologique active effectue une action de Déplacement de 2\", hors limite d'actions."},
+      {id:"barracks_proxy", name:"Barracks (Proxy)", gas:40, cp:2, unique:true, req:"Basique ×2", ability:"Déploiement Biologique depuis un bord de table non-Entrée, à 10\"+ de l'ennemi."},
+      {id:"barracks_techlab", name:"Barracks (Tech Lab)", gas:45, cp:2, unique:true, req:"Basique ×1 · Élite ×1", ability:"L'unité Biologique active effectue un Déplacement de 2\" + son arme gagne ANTI-ESQUIVE (1)."},
+      {id:"dropship", name:"Dropship", gas:40, cp:1, unique:true, req:"Basique ×1 · Soutien ×1", ability:"Renvoie une unité au sol amie non-engagée en Réserve au lieu d'une action."},
+      {id:"engbay", name:"Engineering Bay", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"La première Arme à Distance de l'unité Biologique active gagne COUP CRITIQUE (1)."},
+      {id:"factory", name:"Factory", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"L'unité Mécanique active résout l'effet SOIN (2)."},
+      {id:"orbital", name:"Orbital Command", gas:25, cp:1, unique:true, req:"Basique ×1", ability:"Bloque le déploiement ennemi sur un bord de table choisi jusqu'à la fin du Round."},
+      {id:"supplydepot", name:"Supply Depot", gas:40, cp:1, unique:true, req:"Basique ×1 · Héros ×1 · Élite ×1", ability:"La Valeur de Supply de l'unité active est améliorée de 1 pour le contrôle des marqueurs de mission."}
+    ],
+    units:[
+      {id:"marine", name:"Marine", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"12\"",
+        options:[
+          {label:"6 modèles (sup 1)", points:160, supply:1},
+          {label:"9 modèles (sup 2)", points:210, supply:2}
+        ],
+        upgrades:["Combat Shield +20 pts", "Slugthrower +10 pts", "Grenades (Frag) +10 pts", "AGG-12 +10 pts", "Bayonet +20 pts"],
+        innate:["Stimpack"]},
+      {id:"marauder", name:"Marauder", role:"Basique", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"6+", armor:"4+", hp:5, size:2}, range:"12\"",
+        options:[
+          {label:"2 modèles (sup 1)", points:150, supply:1},
+          {label:"4 modèles (sup 2)", points:280, supply:2}
+        ],
+        upgrades:["Veteran of Tarsonis +20 pts", "Kinetic Foam +20 pts", "Laser Targeting Systems +20 pts"],
+        innate:["Stimpack","Concussive Shells"]},
+      {id:"raynors_raider", name:"Raynor's Raider (Marine)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"12\"",
+        options:[{label:"Escouade (jusqu'à 6 modèles, sup 1)", points:230, supply:1}], upgrades:[],
+        innate:["Stimpack","Raiders Roll!","Rapid Reinforcements"]},
+      {id:"goliath", name:"Goliath", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"7", evade:"—", armor:"4+", hp:10, size:3}, range:"8-18\"",
+        options:[{label:"1 modèle (sup 2)", points:190, supply:2}],
+        upgrades:["Ares-Class Targeting System +20 pts", "Scatter Missiles +30 pts", "Haywire Missiles +40 pts"],
+        innate:["Target Lock","Indomitable","Devastating Charge"]},
+      {id:"jim_raynor", name:"Jim Raynor", role:"Héros", unique:true, traits:"Biologique · Sol · Unique",
+        stats:{speed:"7", evade:"5+", armor:"4+", hp:8, size:"unique"}, range:"18\"",
+        options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Commander","Freedom Fighters","Orders"]},
+      {id:"medic", name:"Medic", role:"Soutien", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"Soutien 4-12\"",
+        options:[{label:"3 modèles (sup 1)", points:110, supply:1}],
+        upgrades:["Advanced Medic Facilities +60 pts", "A-13 Flash Grenade Launcher +20 pts", "Stabilizer Medpacks +30 pts"],
+        innate:["Restoration","Life Support","Medpack","Optical Flare"]},
+      {id:"pdd", name:"Point Defense Drone", role:"Autre", traits:"Blindé · Volant · Mécanique",
+        stats:{speed:"—", evade:"6+", armor:"6+", hp:3, size:1}, range:"Soutien",
+        options:[{label:"1 modèle (sup 1)", points:0, supply:1}], upgrades:[],
+        innate:["Point Defense Laser","Gliding","Structure"]}
+    ]
+  },
+
+  protoss: {
+    label:"Protoss", tagline:"Discipline. Puissance psi. Précision.", emblem:"◈", accent:"#c9a13b", accentDim:"#3a2f14",
+    abilityCurrency:"PE",
+    subfactionNote:"Daelaam = carte de faction standard. Khalai = sous-faction (nécessite Artanis).",
+    factionCards:[
+      {id:"daelaam", name:"Daelaam", cp:1, gas:null, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
+        ability:"Strategic Retreat / Photon Overcharge selon la carte tactique associée — DAE'UHL (passif) : quand une unité amie subit des dégâts, réduisez les Dégâts Totaux de 2 (minimum 1)."},
+      {id:"khalai", name:"Khalai", cp:1, gas:null, unique:true, slots:"Basique ×3 · Élite ×2 · Héros ×1",
+        ability:"Sous-faction liée à Artanis. Bound by the Khala — en fin d'activation, active immédiatement une autre unité amie éligible."}
+    ],
+    tacticalCards:[
+      {id:"gateway", name:"Gateway", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Quick Strikes — la première Arme de Corps-à-corps de l'unité active gagne PRÉCISION (2)."},
+      {id:"warpgate", name:"Warp Gate", gas:40, cp:1, unique:true, req:"Basique ×2", ability:"Warp In — déploiement au sol depuis un bord non-Entrée, à 10\"+ de l'ennemi (1×/Round)."},
+      {id:"gate_chrono", name:"Gate Chronoboosted", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Quick Strikes + Zealous Charge (BUFF Vitesse (2))."},
+      {id:"twilight", name:"Twilight Council", gas:45, cp:1, unique:true, req:"Soutien ×1 · Élite ×1", ability:"Weapons of the Firstborn — l'arme à distance active gagne +4\" de portée / Veil of Shadows — SOIN (2) après un effet PLACE."},
+      {id:"warpprism", name:"Warp Prism", gas:35, cp:1, unique:true, req:"Basique ×2", ability:"Phase — effet PLACE (3) / Warp Conduit — réserve un renfort au sol en fin de Round."},
+      {id:"nexus", name:"Nexus", gas:35, cp:1, unique:true, req:"Basique ×2", ability:"Strategic Recall — retour en Réserve au lieu d'une action / Ancient Pride — la première arme utilisée gagne INSTANT."},
+      {id:"forge", name:"Forge", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"Ground Weapons — la première Arme à Distance gagne COUP CRITIQUE (1) / Ground Armor — TOUGH (1) sur un Jet d'Armure."},
+      {id:"observer", name:"Observer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Surveillance — retire le statut CACHÉ des ennemis à moins de 6\" d'un Indicateur de Faction / Gravitic Boosters — +1 à la distance de Charge."},
+      {id:"powerfield", name:"Power Field", gas:40, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Guardian Shell — l'unité gagne ESQUIVE (2) sur son prochain Jet d'Armure."},
+      {id:"overcharged", name:"Overcharged Nexus", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Photon Overcharge — inflige HITS 3 (1) à toute unité ennemie qui entre en jeu hors de son bord d'Entrée / Strategic Recall — retour en Réserve au lieu d'une action."}
+    ],
+    units:[
+      {id:"zealot", name:"Zealot", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:4, shield:3, size:2}, range:"Mêlée",
+        options:[{label:"3 modèles (sup 2)", points:160, supply:2}],
+        upgrades:["Leg Enhancements +20 pts", "My Life for Aiur +10 pts", "Zealous Round +10 pts", "We Stand As One +20 pts"],
+        innate:["Charge","Devastating Charge"]},
+      {id:"adept", name:"Adept", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"5/8", evade:"5+", armor:"5+", hp:3, shield:2, size:2}, range:"8\"",
+        options:[{label:"4 modèles (sup 1)", points:150, supply:1}],
+        upgrades:["Resonating Glaives +20 pts", "Guidance +10 pts", "Glaive Strike +20 pts"],
+        innate:["Psionic Presence","Psionic Transfer"]},
+      {id:"praetor_guard", name:"Praetor Guard (Zealot)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:4, shield:3, size:2}, range:"Mêlée",
+        options:[{label:"3 modèles (sup 2)", points:280, supply:2}],
+        upgrades:[], innate:["Shield Overcharge","Leg Enhancements","Charge","Devastating Charge","Psi Blades","Titan Killers","Precognition"]},
+      {id:"stalker", name:"Stalker", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"4/8", evade:"6+", armor:"4+", hp:6, shield:3, size:3}, range:"12\"",
+        options:[
+          {label:"1 modèle (sup 1)", points:170, supply:1},
+          {label:"2 modèles (sup 2)", points:270, supply:2}
+        ], upgrades:["Fury of the Nerazim +20/+30 pts (petite/grande escouade)", "Path of Shadows +20/+40 pts (petite/grande escouade)"],
+        innate:["Squadron","Blink"]},
+      {id:"sentry", name:"Sentry", role:"Soutien", traits:"Léger · Mécanique · Psionique · Sol",
+        stats:{speed:"4/7", evade:"6+", armor:"5+", hp:4, shield:2, size:1}, range:"8\"",
+        options:[{label:"2 modèles (sup 1)", points:130, supply:1}],
+        upgrades:["Solid-Field Projectors +20 pts", "Hallucination +30 pts"],
+        innate:["Restoration","Guardian Shield","Force Field"]},
+      {id:"artanis", name:"Artanis", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol",
+        stats:{speed:"7", evade:"5+", armor:"4+", hp:8, shield:4, size:2}, range:"Mêlée",
+        options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Commander","Phase Prism","Lightning Dash","Hierarch's Stand","Devastating Charge"]},
+      {id:"pylon", name:"Pylon", role:"Autre", traits:"Blindé · Sol · Structure",
+        stats:{speed:"—", evade:"—", armor:"5+", hp:8, shield:2, size:3}, range:"—",
+        options:[{label:"1 modèle (sup 0)", points:null, supply:0}], upgrades:[],
+        innate:["Khalai Ingenuity","Structure","Warp Conduit"]}
+    ]
+  },
+
+  zerg: {
+    label:"Zerg", tagline:"L'Essaim consume tout.", emblem:"❋", accent:"#7fd13b", accentDim:"#233a14",
+    abilityCurrency:"BM",
+    subfactionNote:"Zerg Swarm = carte de faction standard. Kerrigan's Swarm = sous-faction (nécessite Kerrigan).",
+    factionCards:[
+      {id:"zergswarm", name:"Zerg Swarm", cp:1, gas:null, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
+        ability:"Zerg Creep (passif) — pendant la construction de liste, choisis exactement une Carte de Terrain Rampant à ajouter (coût indiqué le cas échéant)."},
+      {id:"kerrigans_swarm", name:"Kerrigan's Swarm", cp:1, gas:null, unique:true, slots:"Basique ×3 · Élite ×2 · Héros ×1",
+        ability:"Sous-faction liée à Kerrigan. Malevolent Matriarch (bonus de Charge sur Rampant) + accès aux unités Raptor/Ver Oméga exclusives."}
+    ],
+    tacticalCards:[
+      {id:"spawningpool", name:"Spawning Pool", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Feral Rage — la première Arme de Corps-à-corps active gagne PRÉCISION (2)."},
+      {id:"spawningpool_six", name:"Spawning Pool (Six Pool)", gas:40, cp:2, unique:true, req:"Basique ×2", ability:"Feral Rage + Timing Push (déploiement Zergling hors bord d'Entrée)."},
+      {id:"evochamber", name:"Evolution Chamber", gas:30, cp:1, unique:false, req:"Basique ×1", ability:"Extended Claws (+1 aux jets d'IMPACT) / Carapace (TOUGH (1))."},
+      {id:"roachwarren", name:"Roach Warren", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Nasty Surprise — l'unité au sol active perd le statut Enterré."},
+      {id:"hydraliskden", name:"Hydralisk Den", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"Missile Attacks — la première Arme à Distance active gagne PRÉCISION (1)."},
+      {id:"hatchery", name:"Hatchery", gas:30, cp:1, unique:false, req:"Soutien ×1", ability:"Lie in Wait (statut Enterré) / Creep Spread (pose un Tumeur de Rampant)."},
+      {id:"lair", name:"Lair", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Creep Spread / Predation (armes de corps-à-corps gagnent INSTANT)."},
+      {id:"overseer", name:"Overseer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Pneumatized Carapace (rejet de D6 sur distance de Charge) / Oversight Mode (retire CACHÉ ennemi)."},
+      {id:"overlord", name:"Overlord", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Ventral Sacs — réserve un renfort au sol en fin de Round."},
+      {id:"accelcreep", name:"Accelerating Creep", gas:0, cp:0, unique:true, req:"Carte de Terrain Rampant (choisie via Zerg Swarm)", ability:"Speed on Creep — +1 Vitesse sur Rampant / Living Glob of Tissue (Tumeurs indestructibles au déplacement) / Creep Removal (retire le Tumeur si un ennemi termine une action à 1\")."},
+      {id:"malignantcreep", name:"Malignant Creep", gas:10, cp:0, unique:true, req:"Carte de Terrain Rampant (Kerrigan's Swarm uniquement)", ability:"Malevolent Matriarch — bonus de Charge sur Rampant / Living Glob of Tissue / Creep Removal."}
+    ],
+    units:[
+      {id:"zergling", name:"Zergling", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/8", evade:"4+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[
+          {label:"12 modèles (sup 1)", points:180, supply:1},
+          {label:"18 modèles (sup 2)", points:220, supply:2}
+        ], upgrades:["Burrow Ambush +20/+30 pts (petite/grande escouade)", "Shredding Claws +10 pts", "Adrenal Glands +20 pts"],
+        innate:["Squadron","Metabolic Boost","Devastating Charge"]},
+      {id:"swarmling", name:"Swarmling (Zergling)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/8", evade:"5+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[{label:"18 modèles (sup 1)", points:260, supply:1}],
+        upgrades:["Burrow Ambush +20 pts"],
+        innate:["Squadron","Zergling Reconstitution","Devastating Charge"]},
+      {id:"raptor", name:"Raptor (Zergling)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"5/9", evade:"4+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[
+          {label:"12 modèles (sup 1)", points:240, supply:1},
+          {label:"18 modèles (sup 2)", points:300, supply:2}
+        ], upgrades:["Burrow Ambush +20 pts", "Shredding Claws +10 pts", "Adrenal Glands +20 pts"],
+        innate:["Squadron","Raptor Strain","Adrenal Overload","Devastating Charge","Metabolic Boost"]},
+      {id:"roach", name:"Roach", role:"Basique", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
+        options:[{label:"3 modèles (sup 1)", points:170, supply:1}],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        innate:["Burrow","Regeneration","Devastating Charge"]},
+      {id:"corpser", name:"Corpser (Roach)", role:"Basique", unique:true, traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
+        options:[{label:"3 modèles (sup 1)", points:240, supply:1}],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        innate:["Burrow","Roachling Infestation","Regeneration","Devastating Charge"]},
+      {id:"vile", name:"Vile (Roach)", role:"Basique", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
+        options:[{label:"3 modèles (sup 1)", points:200, supply:1}],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        innate:["Burrow","Debilitating Saliva","Devastating Charge","Regeneration"]},
+      {id:"roachling", name:"Roachling", role:"Autre", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"6+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[{label:"3 modèles (sup 0) — invoqué par Corpser, non achetable seul", points:0, supply:0}],
+        upgrades:[], innate:["Underdeveloped Claws"]},
+      {id:"omega_worm", name:"Omega Worm", role:"Autre", unique:true, traits:"Blindé · Biologique · Sol · Structure — Kerrigan's Swarm",
+        stats:{speed:"—", evade:"—", armor:"5+", hp:10, size:3}, range:"—",
+        options:[{label:"1 modèle (sup 0)", points:0, supply:0}], upgrades:[],
+        innate:["Detection","Source of Creep","Structure","Omega Network"]},
+      {id:"hydralisk", name:"Hydralisk", role:"Élite", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/8", evade:"5+", armor:"5+", hp:4, size:2}, range:"12\"",
+        options:[
+          {label:"2 modèles (sup 2)", points:140, supply:2},
+          {label:"4 modèles (sup 3)", points:260, supply:3}
+        ], upgrades:["Ancillary Carapace +20/+40 pts (petite/grande escouade)", "Lurking +10/+20 pts", "Burrow Ambush +20/+40 pts", "Grooved Spines +20/+40 pts"],
+        innate:["Squadron","Lunge"]},
+      {id:"queen", name:"Queen", role:"Soutien", traits:"Blindé · Biologique · Psionique · Sol",
+        stats:{speed:"4", evade:"—", armor:"4+", hp:9, size:3}, range:"6-12\"",
+        options:[{label:"1 modèle (sup 1)", points:150, supply:1}],
+        upgrades:["Creep Speed +10 pts", "Domineering Presence +10 pts"],
+        innate:["Spawn Creep Tumor","Restoration","Transfusion","Psionic Link","Devastating Charge"]},
+      {id:"kerrigan", name:"Kerrigan", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol",
+        stats:{speed:"7", evade:"6+", armor:"5+", hp:9, size:2}, range:"8\"",
+        options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Commander","Crushing Grip","Mutating Carapace","Leaping Strike","Devastating Charge"]},
+      {id:"kerrigan_raptor", name:"Kerrigan Swarm Raptor (Zergling)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol — Kerrigan's Swarm",
+        stats:{speed:"5/9", evade:"4+", armor:"5+", hp:2, size:1}, range:"Mêlée",
+        options:[{label:"6 modèles (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Squadron","Raptor Strain","Leap","Devastating Charge","Adrenal Overload"]}
+    ]
+  }
+};
+
+const SIZE_PRESETS = [1000, 1500, 2000];
+
+/* ===================== ÉTAT ===================== */
+
+let state = {
+  minerals: 2000,
+  faction: "terran",
+  factionCardId: null,
+  units: [],
+  cards: [],
+  overrides: {},  // { "unitId:optIndex": pointsValue, "card:cardId": gasValue }
+  currentListId: null,
+  currentListName: ""
+};
+
+let selectedUpgrades = {}; // { unitId: Set(upgradeIndex) } — transient, not persisted
+let selectedOption = {}; // { unitId: optionIndex } — transient, which squad size is chosen before adding
+
+function selectOption(unitId, idx){
+  selectedOption[unitId] = (selectedOption[unitId]===idx) ? undefined : idx;
+  render();
+}
+
+function parseUpgradeCost(str){
+  // Matches "Name +20 pts" or "Name +20/+40 pts (note)" -> {label, cost, altCost, note}
+  const m = str.match(/^(.*?)\s*\+(\d+)(?:\/\+(\d+))?\s*pts?(?:\s*\((.*)\))?$/i);
+  if(m){
+    return {label: m[1].trim(), cost: parseInt(m[2]), altCost: m[3]?parseInt(m[3]):null, note: m[4]||null};
+  }
+  // Fallback: strip trailing " — X actif/passif/réaction" style suffix for the label
+  const m2 = str.match(/^(.*?)\s*—\s*.*$/);
+  return {label: m2?m2[1].trim():str, cost: null, altCost: null, note: null};
+}
+
+// Glossaire des mots-clés (Partie 11 du livret officiel, non accessible via l'extraction PDF au-delà de la page 63).
+// confirmed:true = texte confirmé ailleurs dans les règles officielles ou les exemples de partie du livret.
+// confirmed:false = interprétation raisonnable déduite du contexte des cartes, à vérifier avec le livret officiel.
+const KEYWORDS = {
+  "ENGAGÉ":{confirmed:true, text:"Deux modèles ennemis à moins de 1\" l'un de l'autre sont Engagés. Dès qu'un modèle d'une unité est Engagé avec un modèle ennemi, les deux unités sont considérées Engagées."},
+  "ENGAGEMENT":{confirmed:true, text:"L'Aire d'Engagement s'étend à 1\" autour du socle de tout modèle."},
+  "EN COHÉRENCE":{confirmed:true, text:"Tous les modèles d'une unité doivent être Entièrement à moins de 3\" du Modèle Meneur, avec un Lien de Cohérence valide, à la fin de toute action qui les repositionne."},
+  "MODÈLE MENEUR":{confirmed:true, text:"Point de référence temporaire : il se déplace en premier lors d'une action de repositionnement, les autres modèles de l'unité sont ensuite placés En Cohérence autour de lui."},
+  "SUPPLY":{confirmed:true, text:"Caractéristique dynamique liée au nombre de modèles restants dans l'unité (voir le Profil de Supply sur sa carte). Utilisée pour le Déploiement, le Contrôle des Marqueurs de Mission et les tests de Désengagement."},
+  "BOUCLIER":{confirmed:true, text:"S'ajoute aux Points de Vie du premier modèle de l'unité. Le statut Bouclié est perdu quand les Dégâts Totaux dépassent cette valeur ou que le premier modèle est retiré. Ne peut pas être restauré par SOIN."},
+  "SHIELD":{confirmed:true, text:"S'ajoute aux Points de Vie du premier modèle de l'unité. Le statut Bouclié est perdu quand les Dégâts Totaux dépassent cette valeur ou que le premier modèle est retiré. Ne peut pas être restauré par SOIN."},
+  "SURGE":{confirmed:true, text:"Si le Type de Surge de l'arme correspond au Tag de Combat de la cible, un nombre de dés égal au résultat du dé de Surge passe directement de la Réserve d'Armure à la Réserve de Dégâts, sans Jet d'Armure."},
+  "COUP CRITIQUE":{confirmed:true, text:"Les dés retirés de la Réserve d'Armure grâce à ce mot-clé passent directement dans la Réserve de Dégâts, sans Jet d'Armure — comme un effet de Surge."},
+  "CRITICAL HIT":{confirmed:true, text:"Les dés retirés de la Réserve d'Armure grâce à ce mot-clé passent directement dans la Réserve de Dégâts, sans Jet d'Armure — comme un effet de Surge."},
+  "STAY IN PLAY":{confirmed:true, text:"Ce jeton ou marqueur n'est pas retiré automatiquement en fin de Round."},
+  "REPEATABLE":{confirmed:true, text:"Cette capacité Active peut être utilisée plusieurs fois par Round par la même unité, au lieu d'une seule fois normalement."},
+  "PIERCE":{confirmed:true, text:"Contre une cible ayant le Tag de Combat indiqué, chaque dé de la Réserve de Dégâts inflige la valeur indiquée en Dégâts au lieu de 1."},
+  "PERCE":{confirmed:true, text:"Contre une cible ayant le Tag de Combat indiqué, chaque dé de la Réserve de Dégâts inflige la valeur indiquée en Dégâts au lieu de 1."},
+  "LONG RANGE":{confirmed:true, text:"La Portée maximale de l'arme est remplacée par la valeur indiquée."},
+  "LONGUE PORTÉE":{confirmed:true, text:"La Portée maximale de l'arme est remplacée par la valeur indiquée."},
+  "SIDEARM":{confirmed:true, text:"Arme secondaire qui s'ajoute à l'arme principale d'un modèle sans la remplacer. Peut cibler une unité différente du reste de l'unité, mais tous les modèles utilisant ce même profil SIDEARM doivent viser la même cible."},
+  "ARME LATÉRALE":{confirmed:true, text:"Arme secondaire qui s'ajoute à l'arme principale d'un modèle sans la remplacer. Peut cibler une unité différente du reste de l'unité, mais tous les modèles utilisant ce même profil doivent viser la même cible."},
+  "HIDDEN":{confirmed:false, text:"(Interprétation) Statut qui empêche généralement l'unité d'être ciblée par une Attaque à Distance, sauf capacité de Détection adverse. Texte exact non confirmé (glossaire officiel non atteint)."},
+  "CACHÉ":{confirmed:false, text:"(Interprétation) Statut qui empêche généralement l'unité d'être ciblée par une Attaque à Distance, sauf capacité de Détection adverse. Texte exact non confirmé (glossaire officiel non atteint)."},
+  "BURROWED":{confirmed:false, text:"(Interprétation) Statut activé/désactivé par la capacité Burrow quand l'unité n'est pas Engagée ; généralement associé au statut CACHÉ. Texte exact non confirmé."},
+  "ENTERRÉ":{confirmed:false, text:"(Interprétation) Statut activé/désactivé par la capacité Burrow quand l'unité n'est pas Engagée ; généralement associé au statut CACHÉ. Texte exact non confirmé."},
+  "PRECISION":{confirmed:false, text:"(Interprétation, déduite d'un exemple de partie du livret) Convertit un nombre de Jets pour Toucher ratés en succès automatiques, égal à la valeur indiquée."},
+  "PRÉCISION":{confirmed:false, text:"(Interprétation, déduite d'un exemple de partie du livret) Convertit un nombre de Jets pour Toucher ratés en succès automatiques, égal à la valeur indiquée."},
+  "ANTI-EVADE":{confirmed:false, text:"(Interprétation) Réduit la caractéristique Esquive de la cible de la valeur indiquée. Texte exact non confirmé."},
+  "ANTI-ESQUIVE":{confirmed:false, text:"(Interprétation) Réduit la caractéristique Esquive de la cible de la valeur indiquée. Texte exact non confirmé."},
+  "TOUGH":{confirmed:false, text:"(Interprétation) Renforce le Jet d'Armure concerné pour ce Round (mécanique exacte non confirmée)."},
+  "RÉSISTANT":{confirmed:false, text:"(Interprétation) Renforce le Jet d'Armure concerné pour ce Round (mécanique exacte non confirmée)."},
+  "INSTANT":{confirmed:false, text:"(Interprétation) Semble permettre à une attaque de contourner une capacité de réaction adverse normalement déclenchée par ce type d'attaque. Texte exact non confirmé."},
+  "IMPACT":{confirmed:false, text:"(Interprétation, déduite d'un exemple de partie du livret) Lance un nombre de dés égal à la valeur indiquée, touche selon le seuil indiqué ; les dés qui touchent sont ensuite soumis au Jet d'Armure normal de la cible."},
+  "SPECIALIST":{confirmed:false, text:"(Non confirmé) Mot-clé d'arme mentionné sur plusieurs cartes, mécanique exacte non trouvée dans les sections du livret consultées."},
+  "SPÉCIALISTE":{confirmed:false, text:"(Non confirmé) Mot-clé d'arme mentionné sur plusieurs cartes, mécanique exacte non trouvée dans les sections du livret consultées."},
+  "INDIRECT FIRE":{confirmed:false, text:"(Non confirmé) Semble permettre de cibler sans Ligne de Vue directe (usage habituel dans ce type de jeu), mais le texte officiel n'a pas pu être consulté."},
+  "TIR INDIRECT":{confirmed:false, text:"(Non confirmé) Semble permettre de cibler sans Ligne de Vue directe (usage habituel dans ce type de jeu), mais le texte officiel n'a pas pu être consulté."},
+  "LOCKED IN":{confirmed:false, text:"(Non confirmé) Mot-clé d'arme mentionné sur plusieurs cartes (Scatter Missiles, etc.), mécanique exacte non trouvée dans les sections consultées."},
+  "VERROUILLÉ":{confirmed:false, text:"(Non confirmé) Mot-clé d'arme mentionné sur plusieurs cartes, mécanique exacte non trouvée dans les sections consultées."},
+  "BULKY":{confirmed:false, text:"(Non confirmé) Mot-clé d'arme mentionné sur certaines cartes, mécanique exacte non trouvée dans les sections consultées."},
+  "PINPOINT":{confirmed:false, text:"(Non confirmé) Mot-clé d'arme mentionné sur certaines cartes, mécanique exacte non trouvée dans les sections consultées."},
+  "DISPLACEMENT":{confirmed:false, text:"(Interprétation) Semble permettre au modèle d'ignorer le terrain et les autres modèles lors de ses déplacements. Texte exact non confirmé."},
+  "DÉPLACEMENT":{confirmed:false, text:"(Interprétation) Semble permettre au modèle d'ignorer le terrain et les autres modèles lors de ses déplacements. Texte exact non confirmé."},
+  "SUMMON":{confirmed:false, text:"(Interprétation) Crée un nouveau modèle ou une nouvelle unité sur le champ de bataille selon l'effet indiqué."},
+  "RESPAWN":{confirmed:false, text:"(Interprétation) Remet en jeu un nombre de modèles précédemment retirés de cette unité, égal à la valeur indiquée."},
+  "PLACE":{confirmed:true, text:"Positionne un ou plusieurs modèles/unités à la distance indiquée, selon les règles précisées par l'effet (souvent hors de l'Aire d'Engagement ennemie)."},
+  "SOIN":{confirmed:true, text:"Retire un nombre de marqueurs de Dégâts égal à la valeur indiquée d'une unité amie ciblée."},
+  "HEAL":{confirmed:true, text:"Retire un nombre de marqueurs de Dégâts égal à la valeur indiquée d'une unité amie ciblée."}
+};
+
+function linkifyKeywords(text){
+  if(!text) return text;
+  const names = Object.keys(KEYWORDS).sort((a,b)=>b.length-a.length);
+  let out = text;
+  names.forEach(name=>{
+    const re = new RegExp('\\b('+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')\\b(\\s*\\(\\d[^)]*\\))?', 'gi');
+    out = out.replace(re, (m)=>`<span class="kw" onclick="event.stopPropagation();showKeyword('${name}')">${m}</span>`);
+  });
+  return out;
+}
+
+function showKeyword(name){
+  const k = KEYWORDS[name];
+  if(!k) return;
+  const box = document.getElementById('kwModal');
+  document.getElementById('kwModalTitle').textContent = name;
+  document.getElementById('kwModalBadge').style.display = k.confirmed ? 'none':'inline-block';
+  document.getElementById('kwModalText').textContent = k.text;
+  box.style.display = 'flex';
+}
+function closeKeyword(){
+  document.getElementById('kwModal').style.display = 'none';
+}
+
+const UPGRADE_DESCRIPTIONS = {
+
+  // Terran
+  "Combat Shield": "ACTIVE (1 PC) — Cette unité peut toujours effectuer un Jet d'Esquive contre toute Attaque de Corps-à-corps la ciblant, et contre les dégâts d'une Capacité Spéciale ennemie.",
+  "Slugthrower": "PASSIF — Quand cette unité effectue une Attaque à Distance avec un C-14 Rifle sur une cible à moins de 8\", cette arme gagne ANTI-ESQUIVE (1).",
+  "Grenades (Frag)": "PASSIF — Quand cette unité effectue une Attaque à Distance avec un C-14 Rifle sur une cible à moins de 8\", les S Dice de cette arme sont remplacés par un D6.",
+  "AGG-12": "Remplace le C-14 Rifle — RNG 12, Cible Sol, RoA 2, Touche 3+, Surge Blindé D3, Dégâts 1, LONGUE PORTÉE (18\"), SPÉCIALISTE.",
+  "Bayonet": "Remplace l'arme de Frappe — RNG Engagement, Cible Sol, RoA 2, Touche 5+, Dégâts 1.",
+  "Veteran of Tarsonis": "PASSIF — Tant que cette unité est à moins de 3\" d'un Marqueur de Mission, sa caractéristique Armure est augmentée de 1.",
+  "Kinetic Foam": "PASSIF — Augmente la caractéristique Points de Vie de cette unité de 1.",
+  "Laser Targeting Systems": "PASSIF — L'arme Quad K12 de cette unité gagne LONGUE PORTÉE (16\").",
+  "Ares-Class Targeting System": "PASSIF — Les armes Autocannon et Underbelly Machine Gun de cette unité gagnent PRÉCISION (1).",
+  "Scatter Missiles": "Remplace les Hellfire Missiles — RNG 18, Cible Sol, RoA 6, Touche 5+, Surge Léger D3, Dégâts 1, TIR INDIRECT, VERROUILLÉ (6), LONGUE PORTÉE (24\"), ARME LATÉRALE.",
+  "Haywire Missiles": "Remplace les Hellfire Missiles — RNG 12, Cible Sol, RoA 3, Touche 3+, Surge Blindé D3, Dégâts 1, PERCE Blindé (3), ARME LATÉRALE.",
+  "Advanced Medic Facilities": "PASSIF — La Valeur de Supply de cette unité compte comme 0 dans le calcul du Réservoir de Supply.",
+  "A-13 Flash Grenade Launcher": "PASSIF — Augmente la portée de la capacité Optical Flare à 16\".",
+  "Stabilizer Medpacks": "PASSIF — Quand cette unité résout une capacité Life Support ou Medpack, elle compte 1 modèle supplémentaire à portée pour calculer l'effet.",
+  // Zerg
+  "Adrenal Glands": "PASSIF — Les armes Claws et Shredding Claws de cette unité gagnent PRÉCISION (2).",
+  "Burrow Ambush": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre l'effet PLACE (18) depuis le bord d'Entrée du joueur contrôlant. Aucun modèle ne peut être placé à moins de 10\" d'un modèle ennemi. L'Activation de cette unité se termine.",
+  "Shredding Claws": "Remplace les Claws — RNG Engagement, Cible Sol, RoA 2, Touche 4+, Surge Léger/Blindé D3, Dégâts 1.",
+  "Tunneling Claws": "PASSIF — Tant que cette unité a le statut Enterré, elle peut effectuer les actions Déplacement et Course sans perdre ce statut. Elle peut aussi traverser les socles d'autres unités.",
+  "Glial Reconstitution": "ACTIF (1 PC) — Cette unité gagne BONUS Vitesse (1), ou BONUS Vitesse (2) si elle est SUR RAMPANT.",
+  "Hydriodic Bile": "PASSIF — L'arme Acid Saliva de cette unité gagne Type de Surge : Léger, et S Dice : D3+1.",
+  "Grooved Spines": "PASSIF — L'arme à distance Needle Spines de cette unité gagne LONGUE PORTÉE (16\").",
+  "Ancillary Carapace": "PASSIF — Cette unité gagne RÉSISTANT (1) sur le premier Jet d'Armure de chaque Activation.",
+  "Lurking": "PASSIF — Si cette unité a le statut Stationnaire, elle peut effectuer un Jet d'Esquive contre la première Attaque à Distance la ciblant ce Round. Si elle est SUR RAMPANT, elle gagne +1 au Modificateur de ce Jet d'Esquive.",
+  "Creep Speed": "PASSIF — Tant que cette unité est SUR RAMPANT, sa caractéristique Vitesse est augmentée de 2.",
+  "Domineering Presence": "ACTIF (1 BM) — Sélectionne une autre unité amie à moins de 6\" (Ligne de Vue non requise). La caractéristique Supply de cette unité est augmentée de 1 pour le Contrôle/la Contestation des Marqueurs de Mission et les objectifs.",
+  // Protoss
+  "Resonating Glaives": "ACTIF (1 PE) — L'arme Glaive Cannon de cette unité gagne BONUS RoA (1).",
+  "Guidance": "PASSIF — L'arme à distance Glaive Cannon de cette unité gagne ANTI-ESQUIVE (2).",
+  "Glaive Strike": "Remplace l'arme Strike — RNG Engagement, Cible Sol, RoA 1, Touche 4+, Surge Léger D3, Dégâts 1, PERCE Léger (2).",
+  "Leg Enhancements": "ACTIF (1 PE) — Cette unité effectue une action de Déplacement de 2\". Ne compte pas dans sa limite d'actions.",
+  "My Life for Aiur": "PASSIF — Quand cette unité résout un IMPACT, chaque modèle éligible génère 1 dé d'IMPACT supplémentaire.",
+  "Zealous Round": "RÉACTION (0 PE) — Quand cette unité n'est pas Activée et subit des Dégâts, le joueur contrôlant peut la compter comme Activée cette Phase (retourner son Marqueur d'Activation) pour réduire les Dégâts Totaux de 2.",
+  "We Stand As One": "PASSIF — Quand cette unité effectue une Attaque de Corps-à-corps, si la cible est Engagée avec au moins 1 autre unité amie, son arme de Corps-à-corps gagne PRÉCISION (2).",
+  "Blink": "ACTIF (1 PE) — Résout l'effet PLACE (6). Les modèles placés par cet effet ne peuvent pas être positionnés dans le Rayon d'Engagement d'un modèle ennemi.",
+  "Fury of the Nerazim": "PASSIF — Quand cette unité attaque une unité ennemie déjà Activée cette Phase, ses Particle Disruptors gagnent INSTANT pour cette attaque.",
+  "Path of Shadows": "ACTIF (1 PE) — Cette unité gagne le statut CACHÉ jusqu'à ce qu'elle effectue une autre action.",
+  "Guardian Shield": "ACTIF (1 PE) — Toutes les Attaques à Distance ciblant une unité amie à moins de 4\" (Ligne de Vue non requise) sont résolues avec 1 dé de moins dans le Bassin d'Attaque.",
+  "Force Field": "ACTIF (1 PE) — Place un marqueur Force Field à moins de 8\" dans un espace inoccupé. Les unités de Taille 2 ou moins ne peuvent pas le traverser. Les modèles de Taille 3+ peuvent passer par-dessus, puis il est retiré.",
+  "Solid-Field Projectors": "ACTIF (1 PE) — Place un marqueur Force Field à moins de 8\" dans un espace inoccupé. Les unités de Taille 2 ou moins ne peuvent pas le traverser. Les modèles de Taille 3+ peuvent passer par-dessus, puis il est retiré.",
+  "Hallucination": "RÉACTION (0 PE) — Quand une unité ennemie déclare une Attaque à Distance contre une unité amie à moins de 4\", l'unité amie ciblée peut effectuer un Jet d'Esquive contre cette attaque.",
+  "Titan Killers": "PASSIF — Quand cette unité effectue une Attaque de Corps-à-corps sur une cible de Taille 3 ou plus, la caractéristique Dégâts de son arme est traitée comme 2.",
+  "Precognition": "PASSIF — Cette unité peut effectuer un Jet d'Esquive contre toutes les attaques la ciblant.",
+  "Charge": "ACTIF (1 PE) — Pour déterminer la distance de Charge de cette unité, lance 2D6 au lieu de D6 et utilise le meilleur résultat, ajouté à sa caractéristique Vitesse.",
+  "Shield Overcharge": "PASSIF — Cette unité gagne RÉSISTANT (2) sur le premier Jet d'Armure de chaque Round.",
+  "Psionic Presence": "PASSIF — Toutes les armes des unités amies ciblant une unité ennemie à moins de 4\" du jeton Ombre de cette unité gagnent PRÉCISION (1).",
+  "Psionic Transfer": "ACTIF (1 PE) — Place un jeton Ombre entièrement à moins de 12\" de n'importe quel modèle de cette unité. En fin de Round, le joueur contrôlant peut placer tous les modèles de cette unité en Cohérence en traitant le jeton Ombre comme le Modèle Meneur. Le jeton Ombre a DÉPLACEMENT.",
+  "Commander": "PASSIF — Traite la caractéristique Supply de cette unité comme augmentée de 1 pour le Contrôle/la Contestation des Marqueurs de Mission, l'accomplissement d'objectifs et les tests de Désengagement.",
+  "Phase Prism": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre l'effet PLACE (0) sur une autre unité amie, qui est alors retirée du champ de bataille et renvoyée en Réserves. L'Activation de cette unité se termine.",
+  "Lightning Dash": "RÉACTION (1 PE) — Après une Charge réussie, cette unité peut déclarer une seconde Charge contre une autre unité ennemie, en ignorant la restriction d'Engagement pendant la Charge. Devastating Charge ne se déclenche pas une seconde fois.",
+  "Hierarch's Stand": "RÉACTION (1 PE) — Quand une autre unité amie à moins de 8\" est ciblée par une Attaque à Distance et que cette unité est une cible valide, redirige l'attaque sur elle. Elle peut alors effectuer un Jet d'Esquive contre cette attaque redirigée, jusqu'à la fin de l'Activation en cours.",
+  "Khalai Ingenuity": "PASSIF — Une fois par Round, quand une unité amie à moins de 4\" utilise une Capacité Spéciale coûtant de l'Énergie Psionique, ce coût est réduit de 1.",
+  "Structure": "PASSIF — Cette unité ne peut pas être Activée ni effectuer d'actions. Sa Valeur de Supply Actuelle est traitée comme 0, et elle ne peut jamais Contrôler ni Contester de Marqueur de Mission. Elle ne peut pas être ciblée par une capacité, sauf mention contraire.",
+  "Warp Conduit": "PASSIF — Une fois par Round, le joueur contrôlant peut déployer une unité au sol depuis les Réserves en utilisant le socle de cette unité comme bord d'Entrée.",
+  "Restoration": "RÉACTION — Utilisable quand une unité amie à moins de 4\" reçoit un Debuff. Retire tous les Debuffs de cette unité.",
+  "Squadron": "PASSIF — La Cohérence Horizontale de cette unité est de 4\".",
+  "Devastating Charge": "PASSIF — Immédiatement après une Charge réussie, cette unité résout un effet IMPACT (valeur selon la carte) au seuil indiqué.",
+  "Lunge": "RÉACTION (1 BM) — Quand une autre unité amie à moins de 10\" est ciblée par une Attaque à Distance, après résolution complète de l'attaque, cette unité, si elle n'est pas Engagée, peut effectuer une action de Déplacement Directement Vers l'attaquant.",
+  "Crushing Grip": "ACTIF (1 BM) — Sélectionne une unité ennemie à moins de 12\". Cette unité compte comme Activée cette Phase (place un Marqueur d'Activation à côté d'elle).",
+  "Mutating Carapace": "ACTIF (1 BM) — Sélectionne une unité ennemie à moins de 18\". Cette unité peut effectuer un Jet d'Esquive contre toutes les attaques faites par l'unité ennemie sélectionnée, avec un Modificateur de +2 sur ces Jets d'Esquive.",
+  "Leaping Strike": "ACTIF (1 BM) — Si non-Engagée, résout l'effet PLACE (6).",
+  "Detection": "PASSIF — Tant que des unités ennemies sont à moins de 6\" de cette unité, elles perdent le statut CACHÉ.",
+  "Source of Creep": "PASSIF — Une unité Zerg amie ou ennemie au sol à moins de 6\" de cette unité compte comme étant SUR RAMPANT.",
+  "Omega Network": "PASSIF — Le socle de l'Omega Worm compte comme un bord d'Entrée. Chaque Round, des unités amies au coût de Supply combiné de 2 ou moins peuvent être Déployées via ce bord. Si une unité amie Meneuse termine un Déplacement, Désengagement ou Course en contact socle-à-socle avec l'Omega Worm, le joueur contrôlant peut la retirer et la renvoyer en Réserves.",
+  "Raptor Strain": "PASSIF — Cette unité peut se déplacer à travers un Terrain Infranchissable de Taille 4 ou moins et changer d'élévation sans utiliser de Point d'Accès.",
+  "Leap": "ACTIF (1 BM) — Ajoute 2 à la distance de Charge déterminée pour cette unité.",
+  "Adrenal Overload": "ACTIF (1 BM) — Cette unité gagne un Modificateur de +1 à tous les Jets d'IMPACT.",
+  "Spawn Creep Tumor": "ACTIF (1 BM) — Place un jeton Tumeur de Rampant en contact socle-à-socle avec cette unité.",
+  "Transfusion": "RÉACTION (1 BM) — Utilisable quand une autre unité Biologique amie (y compris une Structure) subit des Dégâts à moins de 4\". Réduit les Dégâts Totaux de 2 avant application.",
+  "Psionic Link": "PASSIF — Une fois par Round, si au moins 7 modèles amis sont à moins de 6\" de cette unité, elle peut résoudre sa Capacité Spéciale à coût BM avec ce coût réduit de 1.",
+  "Burrow": "ACTIF (coût en BM variable selon l'unité) — Si non-Engagée, cette unité gagne ou perd le statut Enterré.",
+  "Regeneration": "PASSIF — Quand cette unité devient Activée, si elle a le statut Enterré, résout l'effet SOIN (2).",
+  "Roachling Infestation": "ACTIF (2 BM, une fois par partie) — Résout l'effet SUMMON (Roachling).",
+  "Underdeveloped Claws": "PASSIF — Cette unité ne peut pas gagner le statut Enterré.",
+  "Debilitating Saliva": "RÉACTION (1 BM) — Utilisable quand une unité ennemie à moins de 8\" déclare une Attaque à Distance. Applique DEBUFF Touche (1) à chacune de ses Armes à Distance.",
+  "Metabolic Boost": "ACTIF (1 BM) — Pour déterminer la distance de Charge de cette unité, lance 2D6 au lieu de D6 et utilise le meilleur résultat, ajouté à sa Vitesse.",
+  "Zergling Reconstitution": "ACTIF (1 BM) — Résout l'effet RESPAWN (2), ou RESPAWN (3) si l'unité est SUR RAMPANT.",
+  "Stimpack": "ACTIF (coût en PC) — Cette unité subit DÉGÂTS NON LÉTAUX (2). Elle gagne aussi BONUS Vitesse (3), et ses armes (à distance et de corps-à-corps) gagnent PRÉCISION (valeur selon la carte).",
+  "Concussive Shells": "RÉACTION (1 PC) — Quand une unité ennemie déclare une Charge contre une unité amie à moins de 8\", cette unité ennemie gagne DEBUFF Vitesse (2).",
+  "Life Support": "RÉACTION (1 PC) — Utilisable quand une autre unité Biologique amie à moins de 4\" subit des Dégâts. Réduit l'allocation des Dégâts Totaux de 1 pour chaque modèle de cette unité à moins de 4\" de l'unité endommagée.",
+  "Medpack": "ACTIF (1 PC) — Sélectionne une autre unité Biologique amie à moins de 4\". Résout l'effet SOIN (X) pour l'unité ciblée, où X est le nombre de modèles de cette unité à moins de 4\" de la cible.",
+  "Optical Flare": "ACTIF (2 PC) — Sélectionne une unité ennemie à moins de 12\". Jusqu'à la fin du Round, applique DEBUFF Portée (4) à ses Armes à Distance. Cette unité ne peut plus bénéficier de LONGUE PORTÉE.",
+  "Freedom Fighters": "PASSIF — La Valeur de Supply de toutes les unités amies à moins de 8\" de cette unité ne peut pas être réduite en dessous de 1 pour la Contestation des Marqueurs de Mission et l'accomplissement d'objectifs.",
+  "Orders": "ACTIF (coût en PC variable, RÉPÉTABLE) — Sélectionne une autre unité Biologique amie à moins de 8\", dépense des PC et applique un des effets : 1 PC (COUP CRITIQUE (2) sur sa première arme), 1 PC (ignore la pénalité de Désengagement ce Round), ou 2 PC (retire son Marqueur d'Activation).",
+  "Raiders Roll!": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre son Stimpack avec un coût en PC réduit de 1 (minimum 0).",
+  "Rapid Reinforcements": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre l'effet PLACE (10) sur une autre unité amie. Aucun modèle ne peut être placé à moins de 8\" d'un modèle ennemi. L'Activation de cette unité se termine.",
+  "Target Lock": "ACTIF (1 PC) — Sélectionne une unité ennemie à moins de 12\". Chaque fois qu'une unité Goliath amie cible cet ennemi avec une arme Autocannon, cette arme gagne Type de Surge Léger et Blindé, et S Dice D3+1.",
+  "Indomitable": "PASSIF — Tant qu'elle est Engagée, cette unité peut cibler et être ciblée par des unités ennemies non-Engagées. Dans les deux cas, l'unité qui se défend gagne un Jet d'Esquive contre ces attaques.",
+  "Point Defense Laser": "PASSIF — Quand une autre unité amie à moins de 4\" est ciblée par une Attaque à Distance sans le mot-clé INSTANT, retire jusqu'à 2 dés du Bassin d'Attaque. Puis retire cette unité du champ de bataille.",
+  "Gliding": "PASSIF — Ce modèle a DÉPLACEMENT."
+};
+function toggleUpgrade(unitId, idx){
+  if(!selectedUpgrades[unitId]) selectedUpgrades[unitId] = new Set();
+  const set = selectedUpgrades[unitId];
+  if(set.has(idx)) set.delete(idx); else set.add(idx);
+  render();
+}
+
+const SLOT_ROLES = ["Basique","Élite","Soutien","Héros","Air"];
+
+function parseSlots(str){
+  const out = {};
+  if(!str) return out;
+  const re = /([A-Za-zÀ-ÿ]+)\s*×\s*(\d+)/g;
+  let m;
+  while((m = re.exec(str)) !== null){
+    if(SLOT_ROLES.includes(m[1])) out[m[1]] = (out[m[1]]||0) + parseInt(m[2]);
+  }
+  return out;
+}
+
+function availableSlots(){
+  const f = FACTIONS[state.faction];
+  const total = {};
+  SLOT_ROLES.forEach(r=>total[r]=0);
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    if(fc){ const s = parseSlots(fc.slots); Object.keys(s).forEach(r=>total[r]+=s[r]); }
+  }
+  state.cards.forEach(c=>{
+    const tc = f.tacticalCards.find(x=>x.id===c.cardId);
+    if(tc){ const s = parseSlots(tc.req); Object.keys(s).forEach(r=>total[r]+=s[r]); }
+  });
+  return total;
+}
+
+function usedSlots(){
+  const used = {};
+  SLOT_ROLES.forEach(r=>used[r]=0);
+  state.units.forEach(u=>{
+    const f = FACTIONS[state.faction];
+    const unit = f.units.find(x=>x.id===u.unitId);
+    if(unit && SLOT_ROLES.includes(unit.role)){
+      const val = typeof u.supply==="number" ? u.supply : parseFloat(u.supply);
+      used[unit.role] += (isNaN(val)?0:val);
+    }
+  });
+  return used;
+}
+
+function slotsRemaining(role){
+  return (availableSlots()[role]||0) - (usedSlots()[role]||0);
+}
+
+/* ===================== PERSISTENCE ===================== */
+/* Utilise localStorage (fonctionne dans tout navigateur, fichier ouvert en local ou hébergé) */
+
+async function storageGet(key){
+  try{ const v = localStorage.getItem(key); return v!==null ? {key, value:v} : null; }
+  catch(e){ return null; }
+}
+async function storageSet(key, value){
+  try{ localStorage.setItem(key, value); return {key, value}; }
+  catch(e){ return null; }
+}
+async function storageDelete(key){
+  try{ localStorage.removeItem(key); return {key, deleted:true}; }
+  catch(e){ return null; }
+}
+
+async function saveState(){
+  await storageSet('sc-army-list-v2', JSON.stringify(state));
+}
+async function loadState(){
+  const r = await storageGet('sc-army-list-v2');
+  if(r && r.value){ try{ state = Object.assign(state, JSON.parse(r.value)); }catch(e){} }
+  render();
+}
+
+/* ===================== MULTI-LIST SAVE/LOAD ===================== */
+
+async function getListsIndex(){
+  const r = await storageGet('lists-index');
+  try{ return (r && r.value) ? JSON.parse(r.value) : []; }catch(e){ return []; }
+}
+async function setListsIndex(arr){
+  await storageSet('lists-index', JSON.stringify(arr));
+}
+
+function openSaveModal(){
+  document.getElementById('saveNameInput').value = state.currentListName || "";
+  document.getElementById('saveModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('saveNameInput').focus(), 50);
+}
+function closeSaveModal(){
+  document.getElementById('saveModal').style.display = 'none';
+}
+async function confirmSave(){
+  const name = document.getElementById('saveNameInput').value.trim();
+  if(!name) return;
+  const id = state.currentListId || ('list_'+Date.now());
+  const record = {
+    id, name, faction: state.faction, minerals: state.minerals,
+    factionCardId: state.factionCardId, units: state.units, cards: state.cards, overrides: state.overrides,
+    savedAt: new Date().toISOString()
+  };
+  try{
+    await storageSet('list:'+id, JSON.stringify(record));
+    let idx = await getListsIndex();
+    idx = idx.filter(x=>x.id!==id);
+    idx.push({id, name, faction: state.faction, minerals: state.minerals, savedAt: record.savedAt});
+    await setListsIndex(idx);
+    state.currentListId = id;
+    state.currentListName = name;
+    saveState();
+  }catch(e){}
+  closeSaveModal();
+  renderCurrentListName();
+}
+
+function renderCurrentListName(){
+  const el = document.getElementById('currentListName');
+  if(el) el.textContent = state.currentListName ? '— ' + state.currentListName : '';
+}
+
+async function renderListsView(){
+  const idx = await getListsIndex();
+  idx.sort((a,b)=> new Date(b.savedAt) - new Date(a.savedAt));
+  const box = document.getElementById('listsContainer');
+  if(idx.length===0){
+    box.innerHTML = `<div class="roster-empty">Aucune liste sauvegardée pour l'instant.<br>Ouvre l'Army Builder et clique "💾 Sauvegarder" pour en créer une.</div>`;
+    return;
+  }
+  box.innerHTML = idx.map(item=>{
+    const f = FACTIONS[item.faction];
+    const date = new Date(item.savedAt);
+    const dateStr = date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + date.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    return `<div class="roster-item" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div onclick="loadList('${item.id}')" style="cursor:pointer; flex:1;">
+          <div class="ri-name" style="color:${f?f.accent:'#fff'};">${item.name}</div>
+          <div class="ri-sub">${f?f.label:item.faction} · ${item.minerals} pts · ${dateStr}</div>
+        </div>
+        <button class="rm" onclick="deleteList('${item.id}', event)">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadList(id){
+  try{
+    const r = await storageGet('list:'+id);
+    if(!r || !r.value) return;
+    const rec = JSON.parse(r.value);
+    state.faction = rec.faction;
+    state.minerals = rec.minerals;
+    state.factionCardId = rec.factionCardId;
+    state.units = rec.units || [];
+    state.cards = rec.cards || [];
+    state.overrides = rec.overrides || {};
+    state.currentListId = rec.id;
+    state.currentListName = rec.name;
+    saveState();
+    render();
+    renderCurrentListName();
+    showBuilder();
+  }catch(e){}
+}
+
+async function deleteList(id, evt){
+  if(evt) evt.stopPropagation();
+  if(!confirm('Supprimer définitivement cette liste ?')) return;
+  try{
+    await storageDelete('list:'+id);
+  }catch(e){}
+  let idx = await getListsIndex();
+  idx = idx.filter(x=>x.id!==id);
+  await setListsIndex(idx);
+  if(state.currentListId===id){ state.currentListId=null; state.currentListName=""; }
+  renderListsView();
+}
+
+function newList(){
+  state.units = []; state.cards = []; state.factionCardId = null;
+  state.overrides = {}; state.currentListId = null; state.currentListName = "";
+  saveState();
+  render();
+  renderCurrentListName();
+  showBuilder();
+}
+
+/* ===================== GALERIE D'IMAGES ===================== */
+
+let currentLightboxId = null;
+
+async function getGalleryImages(){
+  const r = await storageGet('gallery-images');
+  try{ return (r && r.value) ? JSON.parse(r.value) : []; }catch(e){ return []; }
+}
+async function setGalleryImages(arr){
+  return await storageSet('gallery-images', JSON.stringify(arr));
+}
+
+function resizeImageFile(file, maxSize){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onerror = () => reject(new Error('image invalide'));
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxSize || h > maxSize){
+          if(w > h){ h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleGalleryUpload(evt){
+  const statusEl = document.getElementById('galleryStatus');
+  const files = Array.from(evt.target.files || []);
+  if(files.length===0){
+    if(statusEl) statusEl.textContent = "Aucun fichier reçu du sélecteur.";
+    return;
+  }
+  if(statusEl) statusEl.textContent = `Import de ${files.length} photo(s)...`;
+  let images = await getGalleryImages();
+  let added = 0, failed = [];
+  for(const file of files){
+    let dataUrl = null;
+    try{
+      dataUrl = await resizeImageFile(file, 900);
+    }catch(e1){
+      // Repli : si le redimensionnement échoue (format non pris en charge par canvas, ex. HEIC sur certains navigateurs),
+      // on stocke l'image brute telle que fournie par le fichier, sans compression.
+      try{
+        dataUrl = await new Promise((resolve, reject)=>{
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error);
+          reader.onload = (e)=> resolve(e.target.result);
+          reader.readAsDataURL(file);
+        });
+      }catch(e2){
+        failed.push(file.name + ' (' + (e2 && e2.message ? e2.message : 'erreur de lecture') + ')');
+        continue;
+      }
+    }
+    images.push({id: 'img_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name: file.name, dataUrl, addedAt: new Date().toISOString()});
+    added++;
+  }
+  const result = added > 0 ? await setGalleryImages(images) : true;
+  evt.target.value = '';
+  if(!result){
+    if(statusEl) statusEl.textContent = "Espace de stockage local plein — supprime d'anciennes photos avant d'en ajouter.";
+  } else if(failed.length){
+    if(statusEl) statusEl.textContent = `${added} photo(s) ajoutée(s). Échec pour : ${failed.join(', ')}`;
+  } else if(added>0){
+    if(statusEl) statusEl.textContent = `${added} photo(s) ajoutée(s).`;
+  } else {
+    if(statusEl) statusEl.textContent = "Aucune photo n'a pu être importée.";
+  }
+  renderGalleryView();
+}
+
+async function renderGalleryView(){
+  const images = await getGalleryImages();
+  const grid = document.getElementById('galleryGrid');
+  if(images.length===0){
+    grid.innerHTML = `<div class="gallery-empty">Aucune photo pour l'instant.<br>Clique "+ Ajouter des photos" pour importer tes figurines peintes.</div>`;
+    return;
+  }
+  images.sort((a,b)=> new Date(b.addedAt) - new Date(a.addedAt));
+  grid.innerHTML = images.map(img=>`
+    <div class="gallery-thumb" onclick="openLightbox('${img.id}')">
+      <img src="${img.dataUrl}" alt="${img.name}" loading="lazy">
+    </div>
+  `).join('');
+}
+
+async function openLightbox(id){
+  const images = await getGalleryImages();
+  const img = images.find(x=>x.id===id);
+  if(!img) return;
+  currentLightboxId = id;
+  document.getElementById('lightboxImg').src = img.dataUrl;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox(){
+  document.getElementById('lightbox').style.display = 'none';
+  currentLightboxId = null;
+}
+async function deleteGalleryImage(id){
+  if(!id) return;
+  if(!confirm('Supprimer cette photo ?')) return;
+  let images = await getGalleryImages();
+  images = images.filter(x=>x.id!==id);
+  await setGalleryImages(images);
+  closeLightbox();
+  renderGalleryView();
+}
+
+/* ===================== HELPERS ===================== */
+
+function unitOptPoints(unit, optIndex){
+  const key = unit.id+':'+optIndex;
+  if(state.overrides[key] !== undefined) return state.overrides[key];
+  return unit.options[optIndex].points;
+}
+function cardGas(f, card){
+  const key = 'card:'+card.id;
+  if(state.overrides[key] !== undefined) return state.overrides[key];
+  return card.gas;
+}
+function gasBudget(){ return Math.round(state.minerals/10); }
+function mineralsSpent(){ return state.units.reduce((s,u)=>s+(u.points||0),0); }
+function gasSpent(){ return state.cards.reduce((s,c)=>s+(c.gas||0),0); }
+function supplyTotal(){
+  return state.units.reduce((s,u)=>{
+    const val = typeof u.supply === "number" ? u.supply : parseFloat(u.supply);
+    return s + (isNaN(val)?0:val);
+  },0);
+}
+function abilityTotal(){
+  const f = FACTIONS[state.faction];
+  let total = state.cards.reduce((s,c)=>s+(c.cp||0),0);
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    if(fc) total += fc.cp;
+  }
+  return total;
+}
+
+/* ===================== RENDER: HUD ===================== */
+
+function renderHud(){
+  const f = FACTIONS[state.faction];
+  const mSpent = mineralsSpent(), mBudget = state.minerals;
+  const gSpent = gasSpent(), gBudget = gasBudget();
+  const mOver = mSpent > mBudget, gOver = gSpent > gBudget;
+  document.getElementById('hud').innerHTML = `
+    <div class="hud-item">
+      <div class="hud-label">Minerai</div>
+      <div class="hud-value mineral ${mOver?'over':''}">${mSpent} / ${mBudget}</div>
+      <div class="hud-bar"><div class="hud-bar-fill ${mOver?'over':'mineral'}" style="width:${Math.min(100,(mSpent/mBudget)*100)}%"></div></div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">Gaz</div>
+      <div class="hud-value gas ${gOver?'over':''}">${gSpent} / ${gBudget}</div>
+      <div class="hud-bar"><div class="hud-bar-fill ${gOver?'over':'gas'}" style="width:${Math.min(100,(gSpent/gBudget)*100)}%"></div></div>
+    </div>
+    <div class="hud-item"><div class="hud-label">Supply</div><div class="hud-value">${supplyTotal()}</div></div>
+    <div class="hud-item"><div class="hud-label">${f.abilityCurrency} total</div><div class="hud-value">${abilityTotal()}</div></div>
+  `;
+}
+
+/* ===================== RENDER: CONTROLS ===================== */
+
+function renderSizeRow(){
+  const row = document.getElementById('sizeRow');
+  row.innerHTML = SIZE_PRESETS.map(v=>
+    `<div class="chip ${state.minerals===v?'active':''}" onclick="setSize(${v})">${v} pts</div>`
+  ).join('') + `
+    <div class="chip custom-input">
+      <span>Autre :</span>
+      <input type="number" step="50" value="${SIZE_PRESETS.includes(state.minerals)?'':state.minerals}" placeholder="ex 1750" onchange="setSize(parseInt(this.value)||2000)">
+    </div>`;
+}
+function setSize(v){ state.minerals = v; saveState(); render(); }
+
+function renderFactionGrid(){
+  const grid = document.getElementById('factionGrid');
+  grid.innerHTML = Object.keys(FACTIONS).map(key=>{
+    const f = FACTIONS[key];
+    return `<div class="faction-card ${state.faction===key?'active':''}" style="--fc-accent:${f.accent}" onclick="selectFaction('${key}')">
+              <div class="emblem">${f.emblem}</div>
+              <div class="fname">${f.label}</div>
+              <div class="ftag">${f.tagline}</div>
+            </div>`;
+  }).join('');
+}
+
+function hexToRgb(hex){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return `${r},${g},${b}`;
+}
+function applyFactionTheme(){
+  const f = FACTIONS[state.faction];
+  const root = document.documentElement.style;
+  root.setProperty('--accent', f.accent);
+  root.setProperty('--accent-dim', f.accentDim);
+  root.setProperty('--accent-rgb', hexToRgb(f.accent));
+}
+
+function selectFaction(key){
+  state.faction = key;
+  state.factionCardId = null;
+  state.units = [];
+  state.cards = [];
+  saveState();
+  render();
+}
+
+function renderFactionCards(){
+  const f = FACTIONS[state.faction];
+  let html = f.factionCards.map(fc=>`
+    <div class="card-option ${state.factionCardId===fc.id?'selected':''}" onclick="pickFactionCard('${fc.id}')">
+      <div class="co-top">
+        <div class="co-name">${fc.name}${fc.unique?' <span style="color:var(--dim);font-size:10px;">(sous-faction)</span>':''}</div>
+        <div class="co-cp">${fc.cp} ${f.abilityCurrency}</div>
+      </div>
+      <div class="co-slots">Emplacements : ${fc.slots}</div>
+      <div class="co-ability">${linkifyKeywords(fc.ability)}</div>
+    </div>
+  `).join('');
+  if(f.subfactionNote) html += `<div class="subfaction-note">${f.subfactionNote}</div>`;
+  document.getElementById('factionCardList').innerHTML = html;
+}
+function pickFactionCard(id){
+  state.factionCardId = (state.factionCardId===id) ? null : id;
+  saveState(); render();
+}
+
+function renderSlotsPanel(){
+  const avail = availableSlots();
+  const used = usedSlots();
+  document.getElementById('slotsPanel').innerHTML = SLOT_ROLES.map(r=>{
+    const a = avail[r]||0, u = used[r]||0;
+    const full = u >= a;
+    return `<div class="slot-chip ${full && a>0 ? 'full':''}">
+      <span class="slot-role">${r}</span>
+      <span class="slot-count">${u} / ${a}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderUnits(){
+  const f = FACTIONS[state.faction];
+  document.getElementById('unitList').innerHTML = f.units.map(u=>`
+    <div class="unit-card">
+      <div class="unit-top">
+        <div>
+          <div class="unit-name">${u.name}${u.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
+          <div class="unit-traits">${u.traits}</div>
+        </div>
+        <div class="unit-role">${u.role}</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><b>VIT</b>${u.stats.speed}</div>
+        <div class="stat"><b>ESQ</b>${u.stats.evade}</div>
+        <div class="stat"><b>ARM</b>${u.stats.armor}</div>
+        <div class="stat"><b>PV</b>${u.stats.hp}</div>
+        ${u.stats.shield!==undefined?`<div class="stat shield"><b>BOUCLIER</b>${u.stats.shield}</div>`:''}
+        <div class="stat"><b>PORTÉE</b>${u.range}</div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:var(--warn);text-transform:uppercase;margin-bottom:6px;">① Choisis la taille d'escouade</div>
+      <div class="unit-options">
+        ${u.options.map((opt,i)=>{
+          const val = unitOptPoints(u,i);
+          const isSelected = selectedOption[u.id]===i;
+          const remaining = SLOT_ROLES.includes(u.role) ? slotsRemaining(u.role) : Infinity;
+          const optSupply = typeof opt.supply==="number" ? opt.supply : parseFloat(opt.supply);
+          const slotBlocked = SLOT_ROLES.includes(u.role) && (isNaN(optSupply) ? false : optSupply > remaining);
+          const alreadyUnique = u.unique && state.units.some(x=>x.unitId===u.id);
+          const optBlocked = slotBlocked || alreadyUnique;
+          return `
+          <div class="unit-opt" style="cursor:pointer;${isSelected?'border-color:var(--accent);background:var(--panel2);':''}${optBlocked?'opacity:.5;':''}" onclick="selectOption('${u.id}',${i})" ${optBlocked?'title="'+(alreadyUnique?'Unité Unique déjà présente':'Plus assez d\'emplacements '+u.role+' disponibles')+'"':''}>
+            <span class="opt-label">${isSelected?'● ':'○ '}${opt.label}${optBlocked?' <span style="color:var(--warn);font-size:10px;">(slots insuffisants)</span>':''}</span>
+            <span class="opt-right">
+              <input class="gasinput pts" type="number" value="${val===null||val===undefined?'':val}" placeholder="?" onclick="event.stopPropagation()" onchange="setUnitOverride('${u.id}',${i},this.value)">
+              <span style="font-size:10px;color:var(--dim);">pts</span>
+            </span>
+          </div>`;
+        }).join('')}
+      </div>
+      ${selectedOption[u.id]!==undefined ? (function(){
+        const optIndex = selectedOption[u.id];
+        const opt = u.options[optIndex];
+        const basePts = unitOptPoints(u, optIndex) || 0;
+        let upgradesHtml = '';
+        let upgradesTotal = 0;
+        if(u.upgrades.length){
+          upgradesHtml = `<div class="unit-upgrades">
+            <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:var(--warn);text-transform:uppercase;margin-bottom:6px;">② Améliorations disponibles pour ce choix</div>
+            ${u.upgrades.map((up,ui)=>{
+              const parsed = parseUpgradeCost(up);
+              const useAlt = optIndex > 0 && parsed.altCost !== null;
+              const cost = useAlt ? parsed.altCost : parsed.cost;
+              const checked = selectedUpgrades[u.id] && selectedUpgrades[u.id].has(ui);
+              if(checked) upgradesTotal += cost||0;
+              const desc = UPGRADE_DESCRIPTIONS[parsed.label];
+              return `<label class="upgrade-line" style="display:flex;align-items:flex-start;gap:7px;margin-top:5px;font-size:11px;color:var(--text);cursor:pointer;">
+                <input type="checkbox" style="margin-top:2px;" ${checked?'checked':''} onchange="toggleUpgrade('${u.id}',${ui})">
+                <span style="flex:1;">
+                  ${parsed.label}${cost!==null?` <b style="color:var(--mineral);font-weight:400;">+${cost} pts</b>`:' <span style="color:var(--warn);">(coût à vérifier)</span>'}
+                  ${checked && desc ? `<div style="margin-top:4px;padding:6px 8px;background:var(--panel2);border-left:2px solid var(--accent);border-radius:2px;color:var(--dim);font-size:10.5px;line-height:1.5;">${linkifyKeywords(desc)}</div>` : ''}
+                </span>
+              </label>`;
+            }).join('')}
+          </div>`;
+        }
+        const remaining = SLOT_ROLES.includes(u.role) ? slotsRemaining(u.role) : Infinity;
+        const optSupply = typeof opt.supply==="number" ? opt.supply : parseFloat(opt.supply);
+        const slotBlocked = SLOT_ROLES.includes(u.role) && (isNaN(optSupply) ? false : optSupply > remaining);
+        const alreadyUnique = u.unique && state.units.some(x=>x.unitId===u.id);
+        const blocked = slotBlocked || alreadyUnique;
+        const reason = alreadyUnique ? 'Unité Unique déjà présente dans la liste' : (slotBlocked ? 'Plus assez d\'emplacements '+u.role+' disponibles' : '');
+        return `${upgradesHtml}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+            <span style="font-family:var(--font-display);font-size:12px;color:var(--mineral);">Total : ${basePts+upgradesTotal} pts</span>
+            <button ${blocked?'disabled title="'+reason+'"':''} style="background:var(--accent);color:#04101c;border:none;border-radius:3px;padding:8px 16px;font-family:var(--font-display);font-size:12px;cursor:pointer;${blocked?'opacity:.35;cursor:not-allowed;':''}" onclick="addUnit('${u.id}',${optIndex})">③ + Ajouter à la liste</button>
+          </div>`;
+      })() : `<div style="font-size:11px;color:var(--dim);margin-top:6px;">Choisis une taille d'escouade ci-dessus pour voir les améliorations disponibles et ajouter l'unité.</div>`}
+      ${u.innate && u.innate.length ? `<div class="unit-upgrades">
+        <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;">Capacités natives (incluses dans le coût)</div>
+        ${u.innate.map(name=>{
+          const desc = UPGRADE_DESCRIPTIONS[name];
+          return `<div style="margin-top:5px;font-size:11px;">
+            <span style="color:var(--text);font-weight:600;">${name}</span>
+            ${desc?`<div style="margin-top:3px;padding:6px 8px;background:var(--panel2);border-left:2px solid var(--dim);border-radius:2px;color:var(--dim);font-size:10.5px;line-height:1.5;">${linkifyKeywords(desc)}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+    </div>
+  `).join('');
+}
+function setUnitOverride(unitId, optIndex, val){
+  const key = unitId+':'+optIndex;
+  state.overrides[key] = val===''?null:parseInt(val);
+  saveState(); render();
+}
+
+function addUnit(unitId, optIndex){
+  const f = FACTIONS[state.faction];
+  const unit = f.units.find(u=>u.id===unitId);
+  const opt = unit.options[optIndex];
+  if(unit.unique && state.units.some(x=>x.unitId===unitId)){
+    return; // unité Unique déjà dans la liste
+  }
+  if(SLOT_ROLES.includes(unit.role)){
+    const optSupply = typeof opt.supply==="number" ? opt.supply : parseFloat(opt.supply);
+    if(!isNaN(optSupply) && optSupply > slotsRemaining(unit.role)){
+      return; // pas assez d'emplacements disponibles pour ce rôle
+    }
+  }
+  let pts = unitOptPoints(unit, optIndex) || 0;
+  const chosenUpgrades = [];
+  if(selectedUpgrades[unitId]){
+    selectedUpgrades[unitId].forEach(ui=>{
+      const parsed = parseUpgradeCost(unit.upgrades[ui]);
+      const useAlt = optIndex > 0 && parsed.altCost !== null;
+      const cost = useAlt ? parsed.altCost : parsed.cost;
+      pts += cost || 0;
+      chosenUpgrades.push(parsed.label + (cost?` (+${cost} pts)`:' (coût à vérifier)'));
+    });
+  }
+  state.units.push({unitId, optIndex, points: pts, name: unit.name, label: opt.label, supply: opt.supply, upgrades: chosenUpgrades});
+  selectedUpgrades[unitId] = new Set(); // reset for next add
+  selectedOption[unitId] = undefined; // reset squad-size choice for next add
+  saveState(); render();
+}
+function removeUnit(idx){ state.units.splice(idx,1); saveState(); render(); }
+
+function renderTactical(){
+  const f = FACTIONS[state.faction];
+  document.getElementById('tacticalList').innerHTML = f.tacticalCards.map(tc=>{
+    const gasVal = cardGas(f,tc);
+    return `
+    <div class="card-option">
+      <div class="co-top">
+        <div class="co-name">${tc.name}${tc.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
+        <div class="co-cp">${tc.cp} ${f.abilityCurrency}</div>
+      </div>
+      <div class="co-slots">Condition suggérée : ${tc.req}</div>
+      <div class="co-ability">${linkifyKeywords(tc.ability)}</div>
+      <div class="co-gasrow">
+        <input class="gasinput" type="number" value="${gasVal===null||gasVal===undefined?'':gasVal}" placeholder="?" onchange="setCardOverride('${tc.id}',this.value)">
+        <span style="font-size:10px;color:var(--dim);">gaz</span>
+        <button style="margin-left:auto;background:var(--accent);color:#04101c;border:none;border-radius:3px;padding:6px 12px;font-family:var(--font-display);font-size:11px;cursor:pointer;" onclick="addCard('${tc.id}')">+ Ajouter</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setCardOverride(cardId, val){
+  state.overrides['card:'+cardId] = val===''?null:parseInt(val);
+  saveState(); render();
+}
+function addCard(cardId){
+  const f = FACTIONS[state.faction];
+  const tc = f.tacticalCards.find(c=>c.id===cardId);
+  if(tc.unique && state.cards.find(c=>c.cardId===cardId)) return;
+  const gasVal = cardGas(f,tc) || 0;
+  state.cards.push({cardId, gas:gasVal, cp:tc.cp, name:tc.name});
+  saveState(); render();
+}
+function removeCard(idx){ state.cards.splice(idx,1); saveState(); render(); }
+
+function renderRoster(){
+  const box = document.getElementById('rosterBox');
+  const f = FACTIONS[state.faction];
+  if(state.units.length===0 && state.cards.length===0 && !state.factionCardId){
+    box.innerHTML = `<div class="roster-empty">Ta liste est vide.<br>Choisis un format, une faction, une carte de faction, puis ajoute des unités.</div>`;
+    return;
+  }
+  let html = '';
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    html += `<div class="roster-group-label">Carte de faction</div>
+      <div class="roster-item"><div class="ri-main"><div class="ri-name">${fc.name}</div><div class="ri-sub">${fc.cp} ${f.abilityCurrency}</div></div></div>`;
+  }
+  if(state.units.length){
+    html += `<div class="roster-group-label">Unités (${state.units.length})</div>`;
+    html += state.units.map((u,i)=>`
+      <div class="roster-item">
+        <div class="ri-main"><div class="ri-name">${u.name}</div><div class="ri-sub">${u.label} · sup ${u.supply}${u.upgrades && u.upgrades.length ? '<br>↳ '+u.upgrades.join(', ') : ''}</div></div>
+        <div style="display:flex;align-items:center;">
+          <span class="ri-cost">${u.points} pts</span>
+          <button class="rm" onclick="removeUnit(${i})">×</button>
+        </div>
+      </div>`).join('');
+  }
+  if(state.cards.length){
+    html += `<div class="roster-group-label">Cartes tactiques (${state.cards.length})</div>`;
+    html += state.cards.map((c,i)=>`
+      <div class="roster-item">
+        <div class="ri-main"><div class="ri-name">${c.name}</div><div class="ri-sub">${c.cp} ${f.abilityCurrency}</div></div>
+        <div style="display:flex;align-items:center;">
+          <span class="ri-cost gascost">${c.gas} gaz</span>
+          <button class="rm" onclick="removeCard(${i})">×</button>
+        </div>
+      </div>`).join('');
+  }
+  box.innerHTML = html;
+}
+
+function render(){
+  applyFactionTheme();
+  renderHud(); renderSizeRow(); renderFactionGrid(); renderFactionCards();
+  renderTactical(); renderSlotsPanel(); renderUnits(); renderRoster(); renderCurrentListName();
+}
+
+/* ===================== EXPORT ===================== */
+
+function doExport(){
+  const f = FACTIONS[state.faction];
+  let lines = [];
+  lines.push(`=== VOID COMMAND — LISTE ${f.label.toUpperCase()} — ${state.minerals} pts ===`);
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    lines.push(`Carte de faction : ${fc.name}`);
+  }
+  lines.push(''); lines.push('-- Unités --');
+  state.units.forEach(u=> lines.push(`${u.name} — ${u.label} — ${u.points} pts (sup ${u.supply})${u.upgrades && u.upgrades.length ? '\n  ↳ '+u.upgrades.join(', ') : ''}`));
+  lines.push(''); lines.push('-- Cartes tactiques --');
+  state.cards.forEach(c=> lines.push(`${c.name} — ${c.gas} gaz — ${c.cp} ${f.abilityCurrency}`));
+  lines.push('');
+  lines.push(`Minerai : ${mineralsSpent()} / ${state.minerals}`);
+  lines.push(`Gaz : ${gasSpent()} / ${gasBudget()}`);
+  lines.push(`Supply total : ${supplyTotal()}`);
+  lines.push(`${f.abilityCurrency} total : ${abilityTotal()}`);
+
+  const box = document.getElementById('exportBox');
+  box.style.display = 'block';
+  box.value = lines.join('\n');
+  box.select();
+  try{ document.execCommand('copy'); }catch(e){}
+}
+
+function resetList(){
+  state.units = []; state.cards = []; state.factionCardId = null;
+  saveState(); render();
+  document.getElementById('exportBox').style.display='none';
+}
+
+const ALL_VIEWS = ['menuView','builderView','listsView','galleryView','eventsView'];
+function hideAllViews(){
+  ALL_VIEWS.forEach(id=>{ const el = document.getElementById(id); if(el) el.style.display='none'; });
+}
+function showBuilder(){
+  hideAllViews();
+  document.getElementById('builderView').style.display = 'block';
+}
+function showMenu(){
+  hideAllViews();
+  document.getElementById('menuView').style.display = 'block';
+}
+function showLists(){
+  hideAllViews();
+  document.getElementById('listsView').style.display = 'block';
+  renderListsView();
+}
+function showGallery(){
+  hideAllViews();
+  document.getElementById('galleryView').style.display = 'block';
+  const statusEl = document.getElementById('galleryStatus');
+  if(statusEl) statusEl.textContent = '';
+  renderGalleryView();
+}
+function showEvents(){
+  hideAllViews();
+  document.getElementById('eventsView').style.display = 'block';
+  const el = document.getElementById('eventsLocStatus');
+  if(el) el.textContent = '';
+}
+
+function findEventsNearMe(){
+  const statusEl = document.getElementById('eventsLocStatus');
+  if(!navigator.geolocation){
+    if(statusEl) statusEl.textContent = "Géolocalisation non disponible sur ce navigateur — ouverture d'une recherche générale.";
+    window.open('https://www.google.com/search?q=' + encodeURIComponent('tournoi StarCraft TMG près de moi'), '_blank');
+    return;
+  }
+  if(statusEl) statusEl.textContent = "Localisation en cours...";
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const {latitude, longitude} = pos.coords;
+      if(statusEl) statusEl.textContent = "Position trouvée — ouverture de la recherche.";
+      window.open(`https://www.google.com/maps/search/tournoi+StarCraft+TMG/@${latitude},${longitude},11z`, '_blank');
+    },
+    (err)=>{
+      if(statusEl) statusEl.textContent = "Position refusée ou indisponible — ouverture d'une recherche générale à la place.";
+      window.open('https://www.google.com/search?q=' + encodeURIComponent('tournoi StarCraft TMG près de moi'), '_blank');
+    },
+    {timeout:8000}
+  );
+}
+
+/* ===================== INIT ===================== */
+loadState();
+</script>
+</body>
+</html>
