@@ -1,0 +1,16 @@
+{
+  "name": "Void Command — Army Builder",
+  "short_name": "Void Command",
+  "description": "Army builder non-officiel pour StarCraft: The Miniatures Game (Terran, Protoss, Zerg).",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#080b10",
+  "theme_color": "#080b10",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
