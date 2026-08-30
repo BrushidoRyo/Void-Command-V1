@@ -231,10 +231,10 @@ header.title{position:relative;}
         <div class="menu-name">Référence des règles</div>
         <div class="menu-desc">Glossaire des mots-clés et rappels de phases, consultables hors liste.</div>
       </div>
-      <div class="menu-card active" onclick="showGallery()">
-        <div class="menu-icon">🖼</div>
-        <div class="menu-name">Galerie d'images</div>
-        <div class="menu-desc">Tes photos de figurines peintes — stockées uniquement sur cet appareil.</div>
+      <div class="menu-card active" onclick="showCollection()">
+        <div class="menu-icon">📦</div>
+        <div class="menu-name">Ma collection</div>
+        <div class="menu-desc">Suis combien de figurines tu possèdes, unité par unité, pour Terran, Protoss et Zerg.</div>
       </div>
       <div class="menu-card active" onclick="showLists()">
         <div class="menu-icon">📋</div>
@@ -264,6 +264,22 @@ header.title{position:relative;}
       <button class="primary" onclick="newList()">+ Nouvelle liste</button>
     </div>
     <div id="listsContainer"></div>
+  </div>
+</div>
+
+<div id="collectionView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn5" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Ma collection</h1>
+    <div class="sub">Figurines possédées — stockées uniquement sur cet appareil</div>
+  </header>
+  <div class="wrap" style="max-width:640px;">
+    <div id="collectionSummary" style="margin-bottom:16px;"></div>
+    <div class="chiprow" id="collectionFactionRow" style="margin-bottom:16px;"></div>
+    <div id="collectionList"></div>
+    <div class="disclaimer" style="margin-top:20px;">
+      Les quantités saisies ici sont indépendantes de l'Army Builder : elles servent uniquement à suivre ta collection physique. Stockées sur cet appareil uniquement.
+    </div>
   </div>
 </div>
 
@@ -1640,7 +1656,7 @@ function resetList(){
   document.getElementById('exportBox').style.display='none';
 }
 
-const ALL_VIEWS = ['menuView','builderView','listsView','galleryView','eventsView'];
+const ALL_VIEWS = ['menuView','builderView','listsView','galleryView','eventsView','collectionView'];
 function hideAllViews(){
   ALL_VIEWS.forEach(id=>{ const el = document.getElementById(id); if(el) el.style.display='none'; });
 }
@@ -1670,6 +1686,115 @@ function showEvents(){
   const el = document.getElementById('eventsLocStatus');
   if(el) el.textContent = '';
 }
+
+/* ===================== MA COLLECTION ===================== */
+
+let collectionActiveFaction = 'terran';
+
+async function getCollection(){
+  const r = await storageGet('collection-v1');
+  try{ return (r && r.value) ? JSON.parse(r.value) : {}; }catch(e){ return {}; }
+}
+async function setCollectionOwned(factionKey, unitId, qty){
+  const col = await getCollection();
+  if(!col[factionKey]) col[factionKey] = {};
+  const n = Math.max(0, parseInt(qty, 10) || 0);
+  if(n === 0) delete col[factionKey][unitId];
+  else col[factionKey][unitId] = n;
+  await storageSet('collection-v1', JSON.stringify(col));
+  return col;
+}
+
+function unitModelCount(unit){
+  // Nombre de modèles de la plus grande option d'escouade, pour estimer la taille d'une boîte de référence
+  if(!unit.options || !unit.options.length) return 1;
+  const nums = unit.options.map(o=>{
+    const m = (o.label||'').match(/(\d+)\s*mod/i);
+    return m ? parseInt(m[1],10) : 1;
+  });
+  return Math.max(...nums, 1);
+}
+
+async function showCollection(){
+  hideAllViews();
+  document.getElementById('collectionView').style.display = 'block';
+  await renderCollectionFactionRow();
+  await renderCollectionSummary();
+  await renderCollectionList();
+}
+
+async function renderCollectionFactionRow(){
+  const row = document.getElementById('collectionFactionRow');
+  row.innerHTML = Object.keys(FACTIONS).map(fk=>{
+    const f = FACTIONS[fk];
+    const active = fk === collectionActiveFaction ? 'active' : '';
+    return `<div class="chip ${active}" style="${active?`border-color:${f.accent}; background:${f.accentDim}; color:#fff;`:''}" onclick="setCollectionFaction('${fk}')">${f.emblem} ${f.label}</div>`;
+  }).join('');
+}
+
+async function setCollectionFaction(fk){
+  collectionActiveFaction = fk;
+  await renderCollectionFactionRow();
+  await renderCollectionList();
+}
+
+async function renderCollectionSummary(){
+  const col = await getCollection();
+  const box = document.getElementById('collectionSummary');
+  const rows = Object.keys(FACTIONS).map(fk=>{
+    const f = FACTIONS[fk];
+    const owned = col[fk] || {};
+    const types = Object.keys(owned).filter(id=>owned[id]>0).length;
+    const models = Object.values(owned).reduce((a,b)=>a+b, 0);
+    return `<div class="roster-item" style="cursor:pointer;" onclick="setCollectionFaction('${fk}'); showCollection();">
+      <div class="ri-main">
+        <div class="ri-name" style="color:${f.accent};">${f.emblem} ${f.label}</div>
+        <div class="ri-sub">${types} unité${types>1?'s':''} possédée${types>1?'s':''} · ${models} figurine${models>1?'s':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.innerHTML = rows;
+}
+
+async function renderCollectionList(){
+  const col = await getCollection();
+  const fk = collectionActiveFaction;
+  const f = FACTIONS[fk];
+  const owned = col[fk] || {};
+  const box = document.getElementById('collectionList');
+  box.innerHTML = `<div class="section-eyebrow">${f.label} — unités</div>` + f.units.map(u=>{
+    const qty = owned[u.id] || 0;
+    const boxSize = unitModelCount(u);
+    return `<div class="roster-item">
+      <div class="ri-main" style="flex:1;">
+        <div class="ri-name">${u.name}</div>
+        <div class="ri-sub">${u.role} · boîte de référence : ${boxSize} modèle${boxSize>1?'s':''}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="rm" style="color:var(--text);" onclick="collectionStep('${fk}','${u.id}',-1)">−</button>
+        <input type="number" min="0" value="${qty}" inputmode="numeric"
+          style="width:48px; text-align:center; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:3px; padding:5px 2px; font-family:var(--font-display); font-size:13px;"
+          onchange="collectionSet('${fk}','${u.id}', this.value)">
+        <button class="rm" style="color:var(--text);" onclick="collectionStep('${fk}','${u.id}',1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function collectionSet(fk, unitId, value){
+  await setCollectionOwned(fk, unitId, value);
+  await renderCollectionSummary();
+  await renderCollectionList();
+}
+
+async function collectionStep(fk, unitId, delta){
+  const col = await getCollection();
+  const current = (col[fk] && col[fk][unitId]) || 0;
+  await setCollectionOwned(fk, unitId, current + delta);
+  await renderCollectionSummary();
+  await renderCollectionList();
+}
+
 
 function findEventsNearMe(){
   const statusEl = document.getElementById('eventsLocStatus');
