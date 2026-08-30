@@ -387,7 +387,8 @@ header.title{position:relative;}
   <div id="saveModal" onclick="closeSaveModal()" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(3,6,10,.75); align-items:center; justify-content:center; padding:20px;">
     <div class="kwbox" onclick="event.stopPropagation()">
       <div class="kwtitle">Sauvegarder la liste</div>
-      <input id="saveNameInput" type="text" placeholder="Nom de la liste" style="width:100%; box-sizing:border-box; background:var(--panel); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius:4px; font-family:var(--font-body); font-size:14px; margin-top:6px;">
+      <input id="saveNameInput" type="text" placeholder="Nom de la liste" style="width:100%; box-sizing:border-box; background:var(--panel); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius:4px; font-family:var(--font-body); font-size:14px; margin-top:6px;" oninput="document.getElementById('saveNameError').style.display='none';">
+      <div id="saveNameError" style="display:none; color:var(--warn); font-size:11.5px; margin-top:6px; line-height:1.4;"></div>
       <div style="display:flex; gap:8px; margin-top:14px;">
         <button onclick="confirmSave()">Enregistrer</button>
         <button onclick="closeSaveModal()" style="background:none; border:1px solid var(--line); color:var(--dim);">Annuler</button>
@@ -1028,6 +1029,7 @@ async function setListsIndex(arr){
 
 function openSaveModal(){
   document.getElementById('saveNameInput').value = state.currentListName || "";
+  document.getElementById('saveNameError').style.display = 'none';
   document.getElementById('saveModal').style.display = 'flex';
   setTimeout(()=>document.getElementById('saveNameInput').focus(), 50);
 }
@@ -1036,8 +1038,24 @@ function closeSaveModal(){
 }
 async function confirmSave(){
   const name = document.getElementById('saveNameInput').value.trim();
+  const errEl = document.getElementById('saveNameError');
   if(!name) return;
-  const id = state.currentListId || ('list_'+Date.now());
+
+  // On ne réutilise l'identifiant de la liste actuellement chargée que si le nom n'a pas changé
+  // (mise à jour de la même liste). Si le nom est différent, c'est une nouvelle liste distincte,
+  // même si elle est chargée à partir d'une liste existante — l'originale n'est jamais écrasée.
+  const isSameList = !!state.currentListId && name.toLowerCase() === (state.currentListName||'').trim().toLowerCase();
+  const id = isSameList ? state.currentListId : ('list_'+Date.now());
+
+  // Le nom doit être unique parmi les listes sauvegardées (hors la liste en cours de mise à jour)
+  const idxCheck = await getListsIndex();
+  const nameTaken = idxCheck.some(x => x.id !== id && x.name.trim().toLowerCase() === name.toLowerCase());
+  if(nameTaken){
+    errEl.textContent = `Une autre liste s'appelle déjà "${name}". Choisis un nom différent.`;
+    errEl.style.display = 'block';
+    return;
+  }
+
   const record = {
     id, name, faction: state.faction, minerals: state.minerals,
     factionCardId: state.factionCardId, units: state.units, cards: state.cards, overrides: state.overrides,
