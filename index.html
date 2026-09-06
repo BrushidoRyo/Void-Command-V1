@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Void Command">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 <style>
 :root{
   --bg:#080b10;
@@ -45,6 +46,22 @@ body{
   background-size:100% 4px;
   opacity:0.5;
 }
+.audio-bar{
+  position:fixed; right:12px; bottom:12px; z-index:60;
+  display:flex; align-items:center; gap:8px;
+  background:rgba(10,14,20,.9); border:1px solid var(--line); border-radius:20px;
+  padding:6px 12px 6px 6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.45);
+  backdrop-filter:blur(4px);
+}
+.audio-bar button{
+  width:32px; height:32px; border-radius:50%; border:1px solid var(--accent-dim);
+  background:var(--panel2); color:var(--text); font-size:15px; line-height:1;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+}
+.audio-bar button.playing{ border-color:var(--accent); box-shadow:0 0 10px -2px var(--accent); }
+.audio-bar input[type="range"]{ width:70px; accent-color:var(--accent); }
+@media print{ .audio-bar{display:none !important;} }
 .hud{
   position:sticky; top:0; z-index:40;
   display:flex; gap:0; overflow-x:auto;
@@ -197,6 +214,7 @@ header.title{position:relative;}
 .roster-item .ri-cost{font-family:var(--font-display); font-size:12px; color:var(--mineral); margin-right:10px; white-space:nowrap;}
 .roster-item .ri-cost.gascost{color:var(--gas);}
 .roster-item button.rm{ background:none; border:1px solid var(--line); color:var(--warn); border-radius:3px; width:26px; height:26px; cursor:pointer; font-size:14px; line-height:1; }
+.roster-item button.pdfbtn{ background:none; border:1px solid var(--accent); color:var(--accent); border-radius:3px; height:26px; padding:0 10px; cursor:pointer; font-size:10.5px; font-family:var(--font-display); letter-spacing:.5px; margin-right:6px; white-space:nowrap; }
 .roster-group-label{font-family:var(--font-display); font-size:10px; letter-spacing:1.5px; color:var(--dim); margin:14px 0 6px; text-transform:uppercase;}
 
 .actions{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;}
@@ -212,6 +230,12 @@ header.title{position:relative;}
 </head>
 <body>
 <div class="scanline"></div>
+
+<audio id="bgAudio" src="theme.mp3" loop preload="none"></audio>
+<div id="audioBar" class="audio-bar" onpointerdown="event.stopPropagation()" onkeydown="event.stopPropagation()">
+  <button id="audioToggle" onclick="toggleAudio()" title="Musique de fond">🔈</button>
+  <input id="audioVolume" type="range" min="0" max="1" step="0.05" value="0.35" oninput="setAudioVolume(this.value)" title="Volume">
+</div>
 
 <div id="menuView">
   <header class="title" style="padding-top:60px;">
@@ -377,7 +401,9 @@ header.title{position:relative;}
   </section>
 
   <section class="builder-controls" id="tacticalSection">
-    <div class="section-eyebrow">Cartes tactiques (débloquent les emplacements d'unités)</div>
+    <div class="section-eyebrow" style="cursor:pointer; user-select:none;" onclick="toggleTacticalCollapse()">
+      <span id="tacticalCaret" style="display:inline-block; margin-right:4px;">▾</span>Cartes tactiques (débloquent les emplacements d'unités)
+    </div>
     <div id="tacticalList"></div>
   </section>
 
@@ -394,6 +420,7 @@ header.title{position:relative;}
     <div class="actions">
       <button class="primary" onclick="openSaveModal()">💾 Sauvegarder</button>
       <button onclick="doExport()">Exporter le texte</button>
+      <button onclick="doExportPDF()">📄 Export PDF</button>
       <button onclick="window.print()">Imprimer</button>
       <button class="danger" onclick="resetList()">Réinitialiser</button>
     </div>
@@ -498,19 +525,26 @@ const FACTIONS = {
       {id:"pdd", name:"Point Defense Drone", role:"Autre", traits:"Blindé · Volant · Mécanique",
         stats:{speed:"—", evade:"6+", armor:"6+", hp:3, size:1}, range:"Soutien",
         options:[{label:"1 modèle (sup 1)", points:0, supply:1}], upgrades:[],
-        innate:["Point Defense Laser","Gliding","Structure"]}
+        innate:["Point Defense Laser","Gliding","Structure"]},
+      {id:"siege_tank", name:"Siege Tank (nom à confirmer)", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"7", evade:"—", armor:"5+", hp:14, size:2}, range:"12-18\"",
+        options:[{label:"1 modèle (sup 2)", points:null, supply:2}],
+        upgrades:["Mode Transformation","Coordinated Strike","Shaped Blast","Smart Shells"],
+        innate:["Large","Heavy Plating","Indomitable","Aftershock Rounds","Point Blank","Devastating Charge"]}
     ]
   },
 
   protoss: {
     label:"Protoss", tagline:"Discipline. Puissance psi. Précision.", emblem:"◈", accent:"#c9a13b", accentDim:"#3a2f14",
     abilityCurrency:"PE",
-    subfactionNote:"Daelaam = carte de faction standard. Khalai = sous-faction (nécessite Artanis).",
+    subfactionNote:"Daelaam = carte de faction standard. Khalai = sous-faction (nécessite Artanis). Nerazim = sous-faction (nécessite Zeratul) — vague 2.",
     factionCards:[
       {id:"daelaam", name:"Daelaam", cp:1, gas:null, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
         ability:"Strategic Retreat / Photon Overcharge selon la carte tactique associée — DAE'UHL (passif) : quand une unité amie subit des dégâts, réduisez les Dégâts Totaux de 2 (minimum 1)."},
       {id:"khalai", name:"Khalai", cp:1, gas:null, unique:true, slots:"Basique ×3 · Élite ×2 · Héros ×1",
-        ability:"Sous-faction liée à Artanis. Bound by the Khala — en fin d'activation, active immédiatement une autre unité amie éligible."}
+        ability:"Sous-faction liée à Artanis. Bound by the Khala — en fin d'activation, active immédiatement une autre unité amie éligible."},
+      {id:"nerazim", name:"Nerazim", cp:1, gas:null, unique:true, slots:"Basique ×2 · Élite ×3 · Héros ×1",
+        ability:"Sous-faction liée à Zeratul (vague 2). Might of the Nerazim (réaction) — quand une unité amie perd le statut CACHÉ, elle gagne BUFF Vitesse (2) et sa première arme utilisée gagne COUP CRITIQUE (2) / Darkness Descends (actif, Phase de Mouvement) — l'unité Biologique active gagne le statut CACHÉ jusqu'à la fin du Round."}
     ],
     tacticalCards:[
       {id:"gateway", name:"Gateway", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Quick Strikes — la première Arme de Corps-à-corps de l'unité active gagne PRÉCISION (2)."},
@@ -522,7 +556,9 @@ const FACTIONS = {
       {id:"forge", name:"Forge", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"Ground Weapons — la première Arme à Distance gagne COUP CRITIQUE (1) / Ground Armor — TOUGH (1) sur un Jet d'Armure."},
       {id:"observer", name:"Observer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Surveillance — retire le statut CACHÉ des ennemis à moins de 6\" d'un Indicateur de Faction / Gravitic Boosters — +1 à la distance de Charge."},
       {id:"powerfield", name:"Power Field", gas:40, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Guardian Shell — l'unité gagne ESQUIVE (2) sur son prochain Jet d'Armure."},
-      {id:"overcharged", name:"Overcharged Nexus", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Photon Overcharge — inflige HITS 3 (1) à toute unité ennemie qui entre en jeu hors de son bord d'Entrée / Strategic Recall — retour en Réserve au lieu d'une action."}
+      {id:"overcharged", name:"Overcharged Nexus", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Photon Overcharge — inflige HITS 3 (1) à toute unité ennemie qui entre en jeu hors de son bord d'Entrée / Strategic Recall — retour en Réserve au lieu d'une action."},
+      {id:"voidseeker", name:"Void Seeker", gas:null, cp:1, unique:true, req:"Basique ×1 (Nerazim)", ability:"Vague 2. Personal Transport (actif, Phase de Mouvement) — au lieu d'effectuer une action, l'unité au sol active et Non-Engagée retourne en Réserve puis effectue une action de Déploiement / Anakh Su'n (actif, Phase de Mouvement) — cette unité gagne le statut CACHÉ jusqu'à ce qu'elle effectue une autre action."},
+      {id:"roboticsfacility", name:"Robotics Facility", gas:null, cp:1, unique:false, req:"Élite ×2", ability:"Vague 2. Plasma Shields (réaction) — à utiliser avant qu'une unité Mécanique et au sol amie fasse un Jet d'Armure. Si cette unité a le statut Bouclier, elle gagne DUR (1) et ESQUIVE (1) pour ce jet."}
     ],
     units:[
       {id:"zealot", name:"Zealot", role:"Basique", traits:"Biologique · Léger · Sol",
@@ -555,6 +591,22 @@ const FACTIONS = {
         stats:{speed:"7", evade:"5+", armor:"4+", hp:8, shield:4, size:2}, range:"Mêlée",
         options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
         innate:["Commander","Phase Prism","Lightning Dash","Hierarch's Stand","Devastating Charge"]},
+      {id:"zeratul", name:"Zeratul", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol — Nerazim",
+        stats:{speed:"7", evade:"5+", armor:"5+", hp:5, shield:3, size:2}, range:"Mêlée",
+        options:[{label:"1 modèle (sup 1)", points:null, supply:1}], upgrades:[],
+        innate:["One with the Shadows","Prophetic Vision","Sentenced to Death","Void Prison","Void Blink","Devastating Charge","Shadow Strike"]},
+      {id:"nerazim_watchers", name:"Nerazim Watchers (Adept)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol — Nerazim",
+        stats:{speed:"5/8", evade:"5+", armor:"5+", hp:3, shield:2, size:2}, range:"8\"",
+        options:[
+          {label:"1-2 modèles (sup 0)", points:null, supply:0},
+          {label:"3-4 modèles (sup 1)", points:null, supply:1}
+        ], upgrades:[],
+        innate:["Path of Shadows","Nerazim Farsight","Psionic Transfer"]},
+      {id:"immortal", name:"Immortal", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"7", evade:"—", armor:"4+", hp:8, shield:6, size:3}, range:"12\"",
+        options:[{label:"1 modèle (sup 2)", points:null, supply:2}],
+        upgrades:["Phase Disruptors (remplace les Photon Disruptors)"],
+        innate:["Improved Barrier","Indomitable","Devastating Charge"]},
       {id:"pylon", name:"Pylon", role:"Autre", traits:"Blindé · Sol · Structure",
         stats:{speed:"—", evade:"—", armor:"5+", hp:8, shield:2, size:3}, range:"—",
         options:[{label:"1 modèle (sup 0)", points:null, supply:0}], upgrades:[],
@@ -647,7 +699,14 @@ const FACTIONS = {
       {id:"kerrigan_raptor", name:"Kerrigan Swarm Raptor (Zergling)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol — Kerrigan's Swarm",
         stats:{speed:"5/9", evade:"4+", armor:"5+", hp:2, size:1}, range:"Mêlée",
         options:[{label:"6 modèles (sup 1)", points:250, supply:1}], upgrades:[],
-        innate:["Squadron","Raptor Strain","Leap","Devastating Charge","Adrenal Overload"]}
+        innate:["Squadron","Raptor Strain","Leap","Devastating Charge","Adrenal Overload"]},
+      {id:"ravager", name:"Ravager", role:"Élite", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/8", evade:"5+", armor:"5+", hp:9, size:3}, range:"12\"",
+        options:[
+          {label:"1 modèle (sup 1)", points:null, supply:1},
+          {label:"2 modèles (sup 2)", points:null, supply:2}
+        ], upgrades:[],
+        innate:["Squadron","Deep Tunnel","Corrosive Bile","Devastating Charge"]}
     ]
   }
 };
@@ -669,6 +728,7 @@ let state = {
 
 let selectedUpgrades = {}; // { unitId: Set(upgradeIndex) } — transient, not persisted
 let selectedOption = {}; // { unitId: optionIndex } — transient, which squad size is chosen before adding
+let collapsedGroups = {}; // { "unit:<role>": true, tactical: true } — transient UI collapse state, not persisted
 
 function selectOption(unitId, idx){
   selectedOption[unitId] = (selectedOption[unitId]===idx) ? undefined : idx;
@@ -953,7 +1013,27 @@ const UPGRADE_DESCRIPTIONS = {
   "Target Lock": "ACTIF (1 PC) — Sélectionne une unité ennemie à moins de 12\". Chaque fois qu'une unité Goliath amie cible cet ennemi avec une arme Autocannon, cette arme gagne Type de Surge Léger et Blindé, et S Dice D3+1.",
   "Indomitable": "PASSIF — Tant qu'elle est Engagée, cette unité peut cibler et être ciblée par des unités ennemies non-Engagées. Dans les deux cas, l'unité qui se défend gagne un Jet d'Esquive contre ces attaques.",
   "Point Defense Laser": "PASSIF — Quand une autre unité amie à moins de 4\" est ciblée par une Attaque à Distance sans le mot-clé INSTANT, retire jusqu'à 2 dés du Bassin d'Attaque. Puis retire cette unité du champ de bataille.",
-  "Gliding": "PASSIF — Ce modèle a DÉPLACEMENT."
+  "Gliding": "PASSIF — Ce modèle a DÉPLACEMENT.",
+  // --- Vague 2 (coûts en points non confirmés) ---
+  "One with the Shadows": "PASSIF — Après que cette unité a entièrement résolu une Action, elle gagne le statut CACHÉ.",
+  "Prophetic Vision": "RÉACTION (1 PE, RÉPÉTABLE) — À utiliser quand cette unité est sélectionnée comme cible d'une attaque. Sa caractéristique Esquive est traitée comme 4+ et ne peut pas être modifiée pour cette attaque.",
+  "Sentenced to Death": "ACTIF (1 PE) — Cible une unité ennemie sur le champ de bataille. Chaque fois que Zeratul effectue une Attaque de Corps-à-corps visant l'unité sélectionnée, son arme gagne COUP CRITIQUE (2).",
+  "Void Prison": "ACTIF (1 PE) — Place un Indicateur de Faction à moins de 8\" de cette unité. Tant que des unités ennemies sont à moins de 2\" de cet Indicateur, elles subissent DEBUFF Vitesse (2).",
+  "Void Blink": "ACTIF (1 PE) — Si Non-Engagée, cette unité résout l'effet PLACE (6).",
+  "Shadow Strike": "ACTIF (1 PE) — Toutes les unités ennemies Engagées avec cette unité subissent HITS 4 (1).",
+  "Nerazim Farsight": "PASSIF — Tant que des unités ennemies sont à moins de 6\" d'un jeton Ombre, elles perdent le statut CACHÉ.",
+  "Improved Barrier": "RÉACTION (0 PE) — À utiliser quand cette unité est sélectionnée comme cible d'une attaque. Si elle a le statut Bouclier, la caractéristique Dégâts de l'arme attaquante est traitée comme 1 maximum pour cette attaque.",
+  "Phase Disruptors (remplace les Photon Disruptors)": "Amélioration (coût à confirmer) — Remplace les deux Photon Disruptors par les Phase Disruptors (RNG 12, Cible Sol, RoA 4, Touche 3+, Surge Blindé, S Dice D3, Dégâts 1, PERCE Blindé (3) ; l'arme droite gagne aussi ARME LATÉRALE). Inclut aussi : Fury Unyielding (passif — tant que cette unité est à moins de 3\" d'un Marqueur de Mission, ses Armes à Distance gagnent COUP CRITIQUE (1) contre une cible ennemie également à moins de 3\" de ce marqueur) et For the Ancients (passif — quand cette unité effectue une Attaque à Distance sur une cible à plus de 8\", l'arme attaquante gagne PRÉCISION (1)).",
+  "Large": "PASSIF — Quand le Modèle Meneur de cette unité se déplace, il ne peut pas passer par des espaces physiques de moins de 3\" de large, quelle que soit sa Taille. Si le trajet du Modèle Meneur traverse, ou si un modèle de cette unité termine son mouvement sur un élément de Terrain Infranchissable de Taille 0 ou 1 (hors Jetons), cet élément est immédiatement retiré du jeu.",
+  "Heavy Plating": "PASSIF — Quand cette unité résout un Jet d'Armure, elle gagne DUR (1), à condition de ne pas avoir actuellement le statut MODE SIÈGE.",
+  "Aftershock Rounds": "PASSIF — Tant que cette unité a le statut MODE SIÈGE, sa caractéristique Dégâts est traitée comme égale à la caractéristique Taille de l'unité ciblée actuelle (minimum 1).",
+  "Point Blank": "PASSIF — Tant que cette unité a le statut MODE SIÈGE, elle ne peut pas cibler d'unités ennemies avec lesquelles elle est Engagée.",
+  "Mode Transformation": "Amélioration ACTIVE (1 PC, coût en points à confirmer) — L'unité active gagne ou perd le statut MODE SIÈGE. Tant qu'elle a ce statut, sa caractéristique Taille est traitée comme 3.",
+  "Coordinated Strike": "Amélioration ACTIVE (0 PC, coût en points à confirmer) — Cible une unité amie Non-Engagée sur le champ de bataille (Ligne de Vue non requise). Quand cette unité résout une Attaque à Distance avec le Shock Cannon ce Round, elle peut ignorer la Portée standard de l'arme si la cible ennemie est à moins de 8\" d'un modèle de l'unité amie sélectionnée et visible de lui, en traitant ce modèle comme le modèle qui agit.",
+  "Shaped Blast": "Amélioration RÉACTION (0 PC, une fois par partie, coût en points à confirmer) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne PRÉCISION et VERROUILLÉ (4).",
+  "Smart Shells": "Amélioration RÉACTION (0 PC, une fois par partie, coût en points à confirmer) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne TIR INDIRECT et LONGUE PORTÉE (24\").",
+  "Deep Tunnel": "ACTIF (1 BM) — Place un jeton Terrier de Ravager entièrement à moins de 12\" de n'importe quel modèle de cette unité. En fin de Round, le joueur contrôlant peut placer tous les modèles de cette unité en Cohérence en traitant ce jeton comme le Modèle Meneur. Le jeton a DÉPLACEMENT.",
+  "Corrosive Bile": "ACTIF (1 BM) — Pour chaque modèle de cette unité, place un jeton Bile Corrosive sur le champ de bataille à moins de 14\" de ce modèle. Ces jetons ne sont pas retirés si cette unité est détruite. En fin de Phase d'Assaut, chaque unité subit HITS 5 (1) pour chaque jeton Bile Corrosive à moins de 1\" d'elle, puis tous les jetons de cette unité sont retirés du champ de bataille."
 };
 function toggleUpgrade(unitId, idx){
   if(!selectedUpgrades[unitId]) selectedUpgrades[unitId] = new Set();
@@ -1114,6 +1194,7 @@ async function renderListsView(){
           <div class="ri-name" style="color:${f?f.accent:'#fff'};">${item.name}</div>
           <div class="ri-sub">${f?f.label:item.faction} · ${item.minerals} pts · ${dateStr}</div>
         </div>
+        <button class="pdfbtn" onclick="exportSavedListPDF('${item.id}', event)" title="Exporter cette liste en PDF">PDF</button>
         <button class="rm" onclick="deleteList('${item.id}', event)">×</button>
       </div>
     </div>`;
@@ -1418,9 +1499,8 @@ function renderSlotsPanel(){
   }).join('');
 }
 
-function renderUnits(){
-  const f = FACTIONS[state.faction];
-  document.getElementById('unitList').innerHTML = f.units.map(u=>`
+function renderUnitCard(u){
+  return `
     <div class="unit-card">
       <div class="unit-top">
         <div>
@@ -1506,7 +1586,30 @@ function renderUnits(){
         }).join('')}
       </div>` : ''}
     </div>
-  `).join('');
+  `;
+}
+
+const UNIT_ROLE_ORDER = ["Héros","Basique","Élite","Soutien","Air","Autre"];
+
+function toggleUnitGroup(role){
+  const key = 'unit:'+role;
+  collapsedGroups[key] = !collapsedGroups[key];
+  renderUnits();
+}
+
+function renderUnits(){
+  const f = FACTIONS[state.faction];
+  const rolesPresent = [...new Set(f.units.map(u=>u.role))];
+  const orderedRoles = UNIT_ROLE_ORDER.filter(r=>rolesPresent.includes(r))
+    .concat(rolesPresent.filter(r=>!UNIT_ROLE_ORDER.includes(r)));
+  document.getElementById('unitList').innerHTML = orderedRoles.map(role=>{
+    const group = f.units.filter(u=>u.role===role);
+    const collapsed = !!collapsedGroups['unit:'+role];
+    const label = `<div class="roster-group-label" style="cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px;" onclick="toggleUnitGroup('${role}')">
+        <span style="display:inline-block;">${collapsed?'▸':'▾'}</span>${role} (${group.length})
+      </div>`;
+    return label + (collapsed ? '' : group.map(renderUnitCard).join(''));
+  }).join('');
 }
 function setUnitOverride(unitId, optIndex, val){
   const key = unitId+':'+optIndex;
@@ -1545,8 +1648,19 @@ function addUnit(unitId, optIndex){
 }
 function removeUnit(idx){ state.units.splice(idx,1); saveState(); render(); }
 
+function toggleTacticalCollapse(){
+  collapsedGroups.tactical = !collapsedGroups.tactical;
+  renderTactical();
+}
+
 function renderTactical(){
   const f = FACTIONS[state.faction];
+  const caret = document.getElementById('tacticalCaret');
+  if(caret) caret.textContent = collapsedGroups.tactical ? '▸' : '▾';
+  if(collapsedGroups.tactical){
+    document.getElementById('tacticalList').innerHTML = '';
+    return;
+  }
   document.getElementById('tacticalList').innerHTML = f.tacticalCards.map(tc=>{
     const gasVal = cardGas(f,tc);
     return `
@@ -1648,6 +1762,189 @@ function doExport(){
   box.value = lines.join('\n');
   box.select();
   try{ document.execCommand('copy'); }catch(e){}
+}
+
+/* ===================== EXPORT PDF ===================== */
+/* Utilise jsPDF (chargé via CDN) pour générer un PDF autonome de la liste,
+   utilisable aussi bien pour la liste en cours dans l'Army Builder que pour
+   n'importe quelle liste sauvegardée, sans modifier l'état en cours. */
+
+function slugify(str){
+  return (str||'liste').toString().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase() || 'liste';
+}
+
+function hexToRgb(hex){
+  hex = (hex||'#4fa8ff').replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16);
+  return [(num>>16)&255, (num>>8)&255, num&255];
+}
+
+function pdfTotals(rec){
+  const f = FACTIONS[rec.faction];
+  const minerals = (rec.units||[]).reduce((s,u)=>s+(u.points||0),0);
+  const gas = (rec.cards||[]).reduce((s,c)=>s+(c.gas||0),0);
+  const gasBudgetVal = Math.round((rec.minerals||0)/10);
+  const supply = (rec.units||[]).reduce((s,u)=>{
+    const v = typeof u.supply==="number" ? u.supply : parseFloat(u.supply);
+    return s + (isNaN(v)?0:v);
+  },0);
+  let ability = (rec.cards||[]).reduce((s,c)=>s+(c.cp||0),0);
+  if(rec.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===rec.factionCardId);
+    if(fc) ability += fc.cp;
+  }
+  return {minerals, gas, gasBudget: gasBudgetVal, supply, ability};
+}
+
+function exportRosterPDF(rec){
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    alert("Le module d'export PDF n'a pas pu se charger (vérifie ta connexion) — réessaie dans un instant.");
+    return;
+  }
+  if(!rec.units || (rec.units.length===0 && rec.cards.length===0 && !rec.factionCardId)){
+    alert("Cette liste est vide — ajoute au moins une unité avant d'exporter en PDF.");
+    return;
+  }
+  const f = FACTIONS[rec.faction];
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 42;
+  const bottomLimit = pageH - 56;
+  const [ar, ag, ab] = hexToRgb(f.accent);
+  let y = 0;
+
+  function drawHeader(){
+    doc.setFillColor(8,11,16);
+    doc.rect(0,0,pageW,78,'F');
+    doc.setFillColor(ar,ag,ab);
+    doc.rect(0,74,pageW,4,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(20);
+    doc.text('VOID COMMAND', marginX, 34);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(200,210,220);
+    doc.text('Army Builder · StarCraft: The Miniatures Game', marginX, 52);
+    y = 102;
+  }
+  function ensureSpace(h){
+    if(y + h > bottomLimit){ doc.addPage(); y = 40; }
+  }
+  function sectionTitle(txt){
+    ensureSpace(20);
+    const label = txt.toUpperCase();
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(ar,ag,ab);
+    doc.text(label, marginX, y);
+    doc.setDrawColor(ar,ag,ab); doc.setLineWidth(0.6);
+    doc.line(marginX + doc.getTextWidth(label) + 8, y-3, pageW-marginX, y-3);
+    y += 16;
+  }
+
+  drawHeader();
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,24,30);
+  const title = `${rec.name ? rec.name+' — ' : ''}${f.label.toUpperCase()} — ${rec.minerals} pts`;
+  doc.text(title, marginX, y);
+  y += 24;
+
+  if(rec.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===rec.factionCardId);
+    if(fc){
+      sectionTitle('Carte de faction');
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
+      doc.text(`${fc.name} (${fc.cp} ${f.abilityCurrency})`, marginX, y); y += 13;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,110,125);
+      doc.splitTextToSize(fc.ability, pageW - marginX*2).forEach(l=>{ ensureSpace(11); doc.text(l, marginX, y); y+=11; });
+      y += 10;
+    }
+  }
+
+  if(rec.units && rec.units.length){
+    sectionTitle(`Unités (${rec.units.length})`);
+    rec.units.forEach(u=>{
+      ensureSpace(24);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
+      doc.text(u.name, marginX, y);
+      const ptsTxt = `${u.points} pts`;
+      doc.setTextColor(ar,ag,ab);
+      doc.text(ptsTxt, pageW - marginX - doc.getTextWidth(ptsTxt), y);
+      y += 13;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,110,125);
+      doc.text(`${u.label} · supply ${u.supply}`, marginX, y);
+      y += 12;
+      if(u.upgrades && u.upgrades.length){
+        u.upgrades.forEach(up=>{
+          doc.splitTextToSize('» ' + up, pageW - marginX*2 - 10).forEach(l=>{
+            ensureSpace(11); doc.text(l, marginX+10, y); y += 11;
+          });
+        });
+      }
+      y += 6;
+    });
+  }
+
+  if(rec.cards && rec.cards.length){
+    sectionTitle(`Cartes tactiques (${rec.cards.length})`);
+    rec.cards.forEach(c=>{
+      ensureSpace(14);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
+      doc.text(c.name, marginX, y);
+      const costTxt = `${c.gas} gaz · ${c.cp} ${f.abilityCurrency}`;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(95,150,120);
+      doc.text(costTxt, pageW - marginX - doc.getTextWidth(costTxt), y);
+      y += 14;
+    });
+    y += 4;
+  }
+
+  const totals = pdfTotals(rec);
+  ensureSpace(70);
+  doc.setDrawColor(210,215,222); doc.setLineWidth(0.6);
+  doc.line(marginX, y, pageW-marginX, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,24,30);
+  doc.text(`Minerai : ${totals.minerals} / ${rec.minerals}`, marginX, y);
+  doc.text(`Gaz : ${totals.gas} / ${totals.gasBudget}`, marginX + 190, y);
+  y += 16;
+  doc.text(`Supply total : ${totals.supply}`, marginX, y);
+  doc.text(`${f.abilityCurrency} total : ${totals.ability}`, marginX + 190, y);
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140,148,160);
+    doc.text('Outil communautaire non-officiel — Void Command. Statistiques et coûts : sources publiques Archon Studio / Stimpacked, à vérifier avec tes cartes physiques.', marginX, pageH-30, {maxWidth: pageW-marginX*2});
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} — page ${i}/${pageCount}`, pageW-marginX, pageH-14, {align:'right'});
+  }
+
+  doc.save(`void-command-${slugify(rec.name || f.label)}.pdf`);
+}
+
+function doExportPDF(){
+  exportRosterPDF({
+    name: state.currentListName || '',
+    faction: state.faction,
+    minerals: state.minerals,
+    factionCardId: state.factionCardId,
+    units: state.units,
+    cards: state.cards
+  });
+}
+
+async function exportSavedListPDF(id, evt){
+  if(evt) evt.stopPropagation();
+  try{
+    const r = await storageGet('list:'+id);
+    if(!r || !r.value) return;
+    exportRosterPDF(JSON.parse(r.value));
+  }catch(e){
+    alert("Impossible d'exporter cette liste en PDF.");
+  }
 }
 
 function resetList(){
@@ -1818,7 +2115,83 @@ function findEventsNearMe(){
   );
 }
 
+/* ===================== AUDIO DE FOND ===================== */
+/* Piste attendue : "theme.mp3" au même niveau que index.html (dépose n'importe quel fichier
+   sous ce nom dans le repo). Aucun navigateur n'autorise le son avant une interaction de
+   l'utilisateur (encore plus strict sur mobile) — impossible à contourner, où que ce soit.
+   À la place, on démarre la musique dès le tout premier tap/clic/touche n'importe où sur la
+   page, ce qui donne l'effet le plus proche d'un vrai autoplay. Le bouton reste disponible pour
+   couper/relancer manuellement ensuite, et le volume choisi est mémorisé (localStorage). */
+
+const AUDIO_VOLUME_KEY = 'sc-audio-volume';
+let audioUserToggled = false; // true dès que l'utilisateur a touché le bouton lui-même
+
+function playAudio(onBlocked){
+  const audio = document.getElementById('bgAudio');
+  const btn = document.getElementById('audioToggle');
+  if(!audio || !audio.paused) return;
+  let playResult;
+  try{ playResult = audio.play(); }catch(e){ playResult = null; }
+  const onPlaying = ()=>{ if(btn){ btn.textContent = '🔊'; btn.classList.add('playing'); } };
+  if(playResult && typeof playResult.then === 'function'){
+    playResult.then(onPlaying).catch(()=>{ if(onBlocked) onBlocked(); });
+  } else {
+    // Navigateur ne renvoyant pas de Promise depuis play() (rare) : on suppose que ça a marché.
+    onPlaying();
+  }
+}
+
+function initAudio(){
+  const audio = document.getElementById('bgAudio');
+  const volumeInput = document.getElementById('audioVolume');
+  if(!audio || !volumeInput) return;
+  let savedVolume = 0.35;
+  try{
+    const raw = localStorage.getItem(AUDIO_VOLUME_KEY);
+    if(raw !== null && !isNaN(parseFloat(raw))) savedVolume = parseFloat(raw);
+  }catch(e){}
+  audio.volume = savedVolume;
+  volumeInput.value = savedVolume;
+  audio.addEventListener('error', ()=>{
+    const btn = document.getElementById('audioToggle');
+    if(btn){ btn.title = "theme.mp3 introuvable — dépose ce fichier à côté de index.html"; btn.style.opacity = '.4'; }
+  });
+
+  // Démarrage automatique dès la première interaction sur la page (une seule fois).
+  const startOnFirstInteraction = ()=>{
+    document.removeEventListener('pointerdown', startOnFirstInteraction);
+    document.removeEventListener('keydown', startOnFirstInteraction);
+    if(audioUserToggled) return; // l'utilisateur a déjà décidé via le bouton, on respecte son choix
+    playAudio();
+  };
+  document.addEventListener('pointerdown', startOnFirstInteraction, {once:true});
+  document.addEventListener('keydown', startOnFirstInteraction, {once:true});
+}
+
+function toggleAudio(){
+  audioUserToggled = true;
+  const audio = document.getElementById('bgAudio');
+  const btn = document.getElementById('audioToggle');
+  if(!audio) return;
+  if(audio.paused){
+    playAudio(()=>{
+      if(btn) btn.title = "Lecture bloquée par le navigateur — réessaie (theme.mp3 doit être présent à côté de index.html).";
+    });
+  } else {
+    audio.pause();
+    if(btn){ btn.textContent = '🔈'; btn.classList.remove('playing'); }
+  }
+}
+
+function setAudioVolume(val){
+  const audio = document.getElementById('bgAudio');
+  const v = parseFloat(val);
+  if(audio) audio.volume = v;
+  try{ localStorage.setItem(AUDIO_VOLUME_KEY, String(v)); }catch(e){}
+}
+
 /* ===================== INIT ===================== */
+initAudio();
 loadState();
 </script>
 </body>
