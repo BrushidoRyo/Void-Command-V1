@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Void Command // Army Builder</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#080b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Void Command">
+<meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080b10;
+  --panel:#0e1420;
+  --panel2:#121a29;
+  --line:#1e2b3d;
+  --text:#dbe6f2;
+  --dim:#6b7f96;
+  --mineral:#6fd1ff;
+  --gas:#5fe3a0;
+  --shield:#8fd3ff;
+  --warn:#ff6a5f;
+  --accent:#4fa8ff;
+  --accent-dim:#1c3a5e;
+  --accent-rgb:79,168,255;
+  --font-display:'Share Tech Mono', ui-monospace, 'Courier New', monospace;
+  --font-body:'Inter', -apple-system, system-ui, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+body{
+  background:
+    radial-gradient(ellipse at top, #0d1826 0%, #080b10 55%),
+    repeating-linear-gradient(0deg, rgba(var(--accent-rgb),0.02) 0px, rgba(var(--accent-rgb),0.02) 1px, transparent 1px, transparent 3px);
+  min-height:100vh;
+  padding-bottom:60px;
+}
+.scanline{
+  position:fixed; inset:0; pointer-events:none; z-index:50;
+  background:linear-gradient(rgba(var(--accent-rgb),0.015) 50%, transparent 50%);
+  background-size:100% 4px;
+  opacity:0.5;
+}
+.audio-bar{
+  position:fixed; right:12px; bottom:12px; z-index:60;
+  display:flex; align-items:center; gap:8px;
+  background:rgba(10,14,20,.9); border:1px solid var(--line); border-radius:20px;
+  padding:6px 12px 6px 6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.45);
+  backdrop-filter:blur(4px);
+}
+.audio-bar button{
+  width:32px; height:32px; border-radius:50%; border:1px solid var(--accent-dim);
+  background:var(--panel2); color:var(--text); font-size:15px; line-height:1;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+}
+.audio-bar button.playing{ border-color:var(--accent); box-shadow:0 0 10px -2px var(--accent); }
+.audio-bar input[type="range"]{ width:70px; accent-color:var(--accent); }
+@media print{ .audio-bar{display:none !important;} }
+.hud{
+  position:sticky; top:0; z-index:40;
+  display:flex; gap:0; overflow-x:auto;
+  background:linear-gradient(180deg,#0c1119 0%, #0a0d13 100%);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.hud-item{ flex:1; min-width:80px; padding:9px 10px 8px; border-right:1px solid var(--line); font-family:var(--font-display); }
+.hud-label{font-size:9px; letter-spacing:1.5px; color:var(--dim); text-transform:uppercase;}
+.hud-value{font-size:15px; font-weight:700; margin-top:2px;}
+.hud-value.mineral{color:var(--mineral);}
+.hud-value.gas{color:var(--gas);}
+.hud-value.over{color:var(--warn);}
+.hud-bar{height:3px; background:var(--line); margin-top:5px; border-radius:2px; overflow:hidden;}
+.hud-bar-fill{height:100%; transition:width .3s;}
+.hud-bar-fill.mineral{background:var(--mineral);}
+.hud-bar-fill.gas{background:var(--gas);}
+.hud-bar-fill.over{background:var(--warn);}
+
+header.title{ padding:22px 16px 10px; text-align:center; }
+header.title h1{
+  font-family:var(--font-display); font-size:22px; letter-spacing:3px; margin:0;
+  text-transform:uppercase; color:#fff; text-shadow:0 0 18px rgba(var(--accent-rgb),.5);
+}
+header.title .sub{ font-size:11px; color:var(--dim); letter-spacing:2px; margin-top:4px; text-transform:uppercase; }
+
+.wrap{max-width:640px; margin:0 auto; padding:0 14px;}
+section{margin-top:26px;}
+.section-eyebrow{
+  font-family:var(--font-display); font-size:11px; color:var(--accent); letter-spacing:2px; text-transform:uppercase;
+  display:flex; align-items:center; gap:8px; margin-bottom:10px;
+}
+.section-eyebrow::before{content:''; width:14px; height:1px; background:var(--accent);}
+.section-eyebrow::after{content:''; flex:1; height:1px; background:var(--line);}
+
+.chiprow{display:flex; gap:8px; flex-wrap:wrap;}
+.chip{
+  padding:8px 14px; border-radius:3px; border:1px solid var(--line);
+  background:var(--panel); color:var(--text); font-family:var(--font-display);
+  font-size:13px; cursor:pointer; letter-spacing:.5px;
+}
+.chip.active{border-color:var(--accent); background:var(--accent-dim); color:#fff;}
+.chip.custom-input{display:flex; align-items:center; gap:6px;}
+.chip.custom-input input{ width:64px; background:transparent; border:none; color:var(--text); font-family:var(--font-display); font-size:13px; outline:none; }
+
+.faction-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.faction-card{
+  border:1px solid var(--line); background:var(--panel); border-radius:4px; padding:12px 8px;
+  text-align:center; cursor:pointer; position:relative; overflow:hidden;
+}
+.faction-card.active{border-color:var(--fc-accent, var(--accent)); box-shadow:0 0 0 1px var(--fc-accent, var(--accent)) inset, 0 0 22px -6px var(--fc-accent, var(--accent));}
+.faction-card .emblem{font-size:22px; margin-bottom:4px; color:var(--fc-accent, var(--accent));}
+.faction-card .fname{font-family:var(--font-display); font-size:12px; letter-spacing:1px; color:#fff;}
+.faction-card .ftag{font-size:9px; color:var(--dim); margin-top:3px; line-height:1.3;}
+
+.subfaction-note{
+  font-size:12px; color:var(--dim); background:var(--panel); border:1px dashed var(--line);
+  border-radius:4px; padding:9px 11px; margin-top:10px; line-height:1.5;
+}
+.slot-chip{
+  padding:7px 12px; border-radius:3px; border:1px solid var(--line);
+  background:var(--panel); font-family:var(--font-display); font-size:12px; letter-spacing:.5px;
+}
+.slot-chip .slot-role{color:var(--dim); font-size:9px; letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:2px;}
+.slot-chip .slot-count{color:var(--text);}
+.slot-chip.full .slot-count{color:var(--warn);}
+.kw{color:var(--accent); text-decoration:underline dotted; cursor:pointer;}
+.kw:hover{color:#fff;}
+#kwModal{
+  display:none; position:fixed; inset:0; z-index:100; background:rgba(3,6,10,.75);
+  align-items:center; justify-content:center; padding:20px;
+}
+#kwModal .kwbox{
+  background:var(--panel2); border:1px solid var(--accent); border-radius:8px; padding:18px;
+  max-width:400px; width:100%; box-shadow:0 0 40px rgba(0,0,0,.6);
+}
+#kwModal .kwtitle{font-family:var(--font-display); font-size:14px; color:#fff; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+#kwModal .kwbadge{font-size:9px; background:var(--warn); color:#1a0505; padding:2px 6px; border-radius:2px; font-family:var(--font-display); display:inline-block;}
+#kwModal .kwtext{font-size:13px; color:var(--text); line-height:1.6;}
+#kwModal button{margin-top:14px; background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;}
+
+.menu-grid{display:grid; grid-template-columns:1fr; gap:12px; margin-top:34px;}
+.menu-card{
+  position:relative; border:1px solid var(--line); background:var(--panel); border-radius:8px;
+  padding:18px 16px; cursor:pointer; transition:border-color .15s;
+}
+.menu-card.active:hover{border-color:var(--accent);}
+.menu-card.active{cursor:pointer;}
+.menu-card.locked{opacity:.45; cursor:not-allowed;}
+.menu-icon{font-size:26px; margin-bottom:8px;}
+.menu-name{font-family:var(--font-display); font-size:15px; letter-spacing:1px; color:#fff; text-transform:uppercase; margin-bottom:4px;}
+.menu-desc{font-size:12px; color:var(--dim); line-height:1.5;}
+.menu-lock{position:absolute; top:12px; right:12px; font-size:9px; font-family:var(--font-display); letter-spacing:1px; background:var(--line); color:var(--dim); padding:3px 7px; border-radius:2px; text-transform:uppercase;}
+#backToMenuBtn{
+  position:absolute; left:14px; top:22px; background:none; border:1px solid var(--line); color:var(--dim);
+  font-family:var(--font-display); font-size:11px; padding:6px 10px; border-radius:4px; cursor:pointer; letter-spacing:.5px;
+}
+#backToMenuBtn:hover{color:#fff; border-color:var(--accent);}
+header.title{position:relative;}
+
+.gallery-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:8px;}
+.gallery-thumb{
+  position:relative; aspect-ratio:1; border-radius:6px; overflow:hidden; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel);
+}
+.gallery-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.gallery-empty{grid-column:1/-1; text-align:center; color:var(--dim); font-size:13px; padding:30px 10px; border:1px dashed var(--line); border-radius:6px;}
+
+.card-option{ border:1px solid var(--line); background:var(--panel); border-radius:5px; padding:12px; margin-bottom:8px; cursor:pointer; }
+.card-option.selected{border-color:var(--accent); background:var(--panel2);}
+.card-option .co-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;}
+.card-option .co-name{font-weight:700; font-size:14px; color:#fff;}
+.card-option .co-cp{font-family:var(--font-display); font-size:11px; color:var(--accent); white-space:nowrap;}
+.card-option .co-slots{font-size:11px; color:var(--dim); margin-top:4px;}
+.card-option .co-ability{font-size:12px; color:var(--text); margin-top:6px; line-height:1.45; opacity:.9;}
+.card-option .co-gasrow{display:flex; align-items:center; gap:6px; margin-top:8px;}
+.gasinput{
+  width:56px; background:var(--panel2); border:1px solid var(--line); color:var(--gas);
+  font-family:var(--font-display); font-size:12px; border-radius:3px; padding:3px 5px; text-align:right;
+}
+.gasinput.pts{color:var(--mineral);}
+
+.unit-card{ border:1px solid var(--line); background:var(--panel); border-radius:5px; padding:12px; margin-bottom:10px; }
+.unit-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.unit-name{font-weight:700; font-size:15px; color:#fff;}
+.unit-role{
+  font-family:var(--font-display); font-size:9px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--accent); border:1px solid var(--accent-dim); padding:2px 6px; border-radius:2px; white-space:nowrap;
+}
+.unit-traits{font-size:11px; color:var(--dim); margin-top:2px;}
+.stat-row{display:flex; gap:12px; flex-wrap:wrap; margin-top:9px;}
+.stat{font-family:var(--font-display); font-size:11px; color:var(--text);}
+.stat.shield{color:var(--shield);}
+.stat b{color:var(--dim); font-weight:400; margin-right:3px;}
+.unit-options{margin-top:10px; display:flex; flex-direction:column; gap:6px;}
+.unit-opt{ display:flex; justify-content:space-between; align-items:center; border:1px solid var(--line); border-radius:4px; padding:7px 9px; font-size:12px; background:var(--panel2); flex-wrap:wrap; gap:6px; }
+.unit-opt .opt-label{color:var(--text);}
+.unit-opt .opt-right{display:flex; align-items:center; gap:6px;}
+.unit-opt button{ background:var(--accent); color:#04101c; border:none; border-radius:3px; padding:5px 10px; font-family:var(--font-display); font-size:11px; cursor:pointer; }
+.unit-opt button:active{transform:scale(.96);}
+.unit-upgrades{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5; border-top:1px dashed var(--line); padding-top:8px;}
+.unit-upgrades .u-line{margin-top:2px;}
+.unit-upgrades .u-line b{color:var(--text); font-weight:600;}
+
+.roster-empty{ text-align:center; color:var(--dim); font-size:13px; padding:26px 10px; border:1px dashed var(--line); border-radius:6px; }
+.roster-item{ display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:9px 11px; margin-bottom:7px; }
+.roster-item .ri-main{font-size:13px;}
+.roster-item .ri-main .ri-name{font-weight:700; color:#fff;}
+.roster-item .ri-main .ri-sub{font-size:11px; color:var(--dim);}
+.roster-item .ri-cost{font-family:var(--font-display); font-size:12px; color:var(--mineral); margin-right:10px; white-space:nowrap;}
+.roster-item .ri-cost.gascost{color:var(--gas);}
+.roster-item button.rm{ background:none; border:1px solid var(--line); color:var(--warn); border-radius:3px; width:26px; height:26px; cursor:pointer; font-size:14px; line-height:1; }
+.roster-item button.pdfbtn{ background:none; border:1px solid var(--accent); color:var(--accent); border-radius:3px; height:26px; padding:0 10px; cursor:pointer; font-size:10.5px; font-family:var(--font-display); letter-spacing:.5px; margin-right:6px; white-space:nowrap; }
+.roster-group-label{font-family:var(--font-display); font-size:10px; letter-spacing:1.5px; color:var(--dim); margin:14px 0 6px; text-transform:uppercase;}
+
+.actions{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;}
+.actions button{ flex:1; min-width:100px; padding:11px; border-radius:4px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-family:var(--font-display); font-size:12px; letter-spacing:1px; cursor:pointer; }
+.actions button.primary{background:var(--accent); color:#04101c; border-color:var(--accent); font-weight:700;}
+.actions button.danger{border-color:var(--warn); color:var(--warn); background:transparent;}
+
+.disclaimer{ font-size:11px; color:var(--dim); text-align:center; margin-top:30px; line-height:1.6; padding:0 10px; }
+#exportBox{ width:100%; margin-top:10px; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:10px; font-family:var(--font-display); font-size:11px; min-height:140px; display:none; }
+
+@media print{ .hud, .actions, section.builder-controls{display:none !important;} body{background:#fff; color:#000;} }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<audio id="bgAudio" src="theme.mp3" loop preload="none"></audio>
+<div id="audioBar" class="audio-bar" onpointerdown="event.stopPropagation()" onkeydown="event.stopPropagation()">
+  <button id="audioToggle" onclick="toggleAudio()" title="Musique de fond">🔈</button>
+  <input id="audioVolume" type="range" min="0" max="1" step="0.05" value="0.35" oninput="setAudioVolume(this.value)" title="Volume">
+</div>
+
+<div id="menuView">
+  <header class="title" style="padding-top:60px;">
+    <h1>Void Command</h1>
+    <div class="sub">StarCraft: The Miniatures Game — Compagnon non-officiel</div>
+  </header>
+  <div class="wrap" style="max-width:520px;">
+    <div class="menu-grid">
+      <div class="menu-card active" onclick="showBuilder()">
+        <div class="menu-icon">⚔</div>
+        <div class="menu-name">Army Builder</div>
+        <div class="menu-desc">Construis ta liste — Terran, Protoss, Zerg. Emplacements, améliorations, coûts en Minerai/Gaz.</div>
+      </div>
+      <div class="menu-card locked">
+        <div class="menu-lock">Bientôt</div>
+        <div class="menu-icon">📖</div>
+        <div class="menu-name">Référence des règles</div>
+        <div class="menu-desc">Glossaire des mots-clés et rappels de phases, consultables hors liste.</div>
+      </div>
+      <div class="menu-card active" onclick="showCollection()">
+        <div class="menu-icon">📦</div>
+        <div class="menu-name">Ma collection</div>
+        <div class="menu-desc">Suis combien de figurines tu possèdes, unité par unité, pour Terran, Protoss et Zerg.</div>
+      </div>
+      <div class="menu-card active" onclick="showLists()">
+        <div class="menu-icon">📋</div>
+        <div class="menu-name">Mes listes sauvegardées</div>
+        <div class="menu-desc">Retrouve, charge ou supprime tes listes enregistrées.</div>
+      </div>
+      <div class="menu-card active" onclick="showEvents()">
+        <div class="menu-icon">🗺</div>
+        <div class="menu-name">Événements</div>
+        <div class="menu-desc">Trouve des tournois et parties près de chez toi, et les ressources communautaires.</div>
+      </div>
+    </div>
+    <div class="disclaimer" style="margin-top:26px;">
+      Outil communautaire non-officiel, basé sur les fiches et le livret de règles publics d'Archon Studio.
+    </div>
+  </div>
+</div>
+
+<div id="listsView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn2" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Mes listes</h1>
+    <div class="sub">Listes sauvegardées sur cet appareil</div>
+  </header>
+  <div class="wrap" style="max-width:520px;">
+    <div class="actions" style="margin-bottom:18px;">
+      <button class="primary" onclick="newList()">+ Nouvelle liste</button>
+    </div>
+    <div id="listsContainer"></div>
+  </div>
+</div>
+
+<div id="collectionView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn5" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Ma collection</h1>
+    <div class="sub">Figurines possédées — stockées uniquement sur cet appareil</div>
+  </header>
+  <div class="wrap" style="max-width:640px;">
+    <div id="collectionSummary" style="margin-bottom:16px;"></div>
+    <div class="chiprow" id="collectionFactionRow" style="margin-bottom:16px;"></div>
+    <div id="collectionList"></div>
+    <div class="disclaimer" style="margin-top:20px;">
+      Les quantités saisies ici sont indépendantes de l'Army Builder : elles servent uniquement à suivre ta collection physique. Stockées sur cet appareil uniquement.
+    </div>
+  </div>
+</div>
+
+<div id="galleryView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn3" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Galerie d'images</h1>
+    <div class="sub">Tes photos de figurines peintes — stockées uniquement sur cet appareil</div>
+  </header>
+  <div class="wrap" style="max-width:640px;">
+    <div class="actions" style="margin-bottom:18px;">
+      <input type="file" id="galleryFileInput" accept="image/*" multiple onchange="handleGalleryUpload(event)" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
+      <label class="chip active" style="cursor:pointer; display:inline-block;" onclick="var i=document.getElementById('galleryFileInput'); if(i && i.click) i.click();">
+        + Ajouter des photos
+      </label>
+    </div>
+    <div id="galleryStatus" style="font-size:12px; color:var(--dim); margin-bottom:12px;"></div>
+    <div id="galleryGrid" class="gallery-grid"></div>
+    <div class="disclaimer" style="margin-top:20px;">
+      Ces images sont stockées uniquement dans ton navigateur (localStorage), sur cet appareil — elles ne sont ni envoyées ni partagées. Les photos sont compressées automatiquement pour limiter l'espace utilisé.
+    </div>
+  </div>
+
+  <div id="lightbox" onclick="closeLightbox()" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(3,6,10,.9); align-items:center; justify-content:center; padding:20px; flex-direction:column;">
+    <img id="lightboxImg" style="max-width:100%; max-height:80vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
+    <div style="margin-top:14px; display:flex; gap:8px;">
+      <button onclick="event.stopPropagation(); deleteGalleryImage(currentLightboxId)" style="background:none; border:1px solid var(--warn); color:var(--warn); border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Supprimer</button>
+      <button onclick="closeLightbox()" style="background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="eventsView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn4" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Événements</h1>
+    <div class="sub">Tournois, parties et ressources communautaires</div>
+  </header>
+  <div class="wrap" style="max-width:520px;">
+
+    <div class="section-eyebrow">Trouver près de chez toi</div>
+    <div class="actions" style="margin-bottom:8px;">
+      <button class="primary" onclick="findEventsNearMe()">📍 Tournois près de chez moi</button>
+    </div>
+    <div id="eventsLocStatus" style="font-size:12px; color:var(--dim); margin-bottom:20px;"></div>
+
+    <div class="section-eyebrow">Ressources communautaires</div>
+    <div class="card-option" onclick="window.open('https://www.sctmg-vault.com/events','_blank')">
+      <div class="co-top"><div class="co-name">StarCraft Vault — Events</div></div>
+      <div class="co-ability">Tracker de tournois communautaire (non-officiel) : parties, ligues, classements par région.</div>
+    </div>
+    <div class="card-option" onclick="window.open('https://maxireves.fr','_blank')">
+      <div class="co-top"><div class="co-name">Maxi Rêves (Abbeville)</div></div>
+      <div class="co-ability">Boutique partenaire — précommandes et éventuelles parties/démos en magasin.</div>
+    </div>
+    <div class="card-option" onclick="window.open('https://www.facebook.com/StarCraftTMG','_blank')">
+      <div class="co-top"><div class="co-name">Page Facebook officielle</div></div>
+      <div class="co-ability">Annonces d'Archon Studio, souvent relayées par les boutiques organisant des soirées jeu.</div>
+    </div>
+    <div class="card-option" onclick="window.open('https://discord.gg/XxUrBN9UnT','_blank')">
+      <div class="co-top"><div class="co-name">Discord communautaire (SC Vault)</div></div>
+      <div class="co-ability">Discussion, recherche d'adversaires et annonces de tournois entre joueurs.</div>
+    </div>
+
+    <div class="disclaimer" style="margin-top:22px;">
+      Il n'existe pas encore de calendrier d'événements officiel centralisé (la page "Tournaments" d'Archon Studio est vide à ce jour) — ces liens pointent vers les meilleures ressources communautaires disponibles. Le bouton de géolocalisation ouvre une recherche Google Maps près de ta position ; rien n'est envoyé ni stocké, la recherche s'ouvre directement dans ton navigateur.
+    </div>
+  </div>
+</div>
+
+<div id="builderView" style="display:none;">
+<div class="hud" id="hud"></div>
+
+<header class="title">
+  <button id="backToMenuBtn" onclick="showMenu()" title="Retour au menu">← Menu</button>
+  <h1>Void Command</h1>
+  <div class="sub">Army Builder · StarCraft: The Miniatures Game</div>
+</header>
+
+<div class="wrap">
+
+  <section class="builder-controls">
+    <div class="section-eyebrow">Format de partie</div>
+    <div class="chiprow" id="sizeRow"></div>
+  </section>
+
+  <section class="builder-controls">
+    <div class="section-eyebrow">Faction</div>
+    <div class="faction-grid" id="factionGrid"></div>
+  </section>
+
+  <section class="builder-controls" id="factionCardSection">
+    <div class="section-eyebrow">Carte de faction</div>
+    <div id="factionCardList"></div>
+  </section>
+
+  <section class="builder-controls" id="tacticalSection">
+    <div class="section-eyebrow" style="cursor:pointer; user-select:none;" onclick="toggleTacticalCollapse()">
+      <span id="tacticalCaret" style="display:inline-block; margin-right:4px;">▾</span>Cartes tactiques (débloquent les emplacements d'unités)
+    </div>
+    <div id="tacticalList"></div>
+  </section>
+
+  <section class="builder-controls" id="unitSection">
+    <div class="section-eyebrow">Emplacements d'armée</div>
+    <div id="slotsPanel" class="chiprow" style="margin-bottom:14px;"></div>
+    <div class="section-eyebrow">Unités disponibles</div>
+    <div id="unitList"></div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">Ta liste <span id="currentListName" style="color:var(--dim); text-transform:none; letter-spacing:0; font-family:var(--font-body);"></span></div>
+    <div id="rosterBox"></div>
+    <div class="actions">
+      <button class="primary" onclick="openSaveModal()">💾 Sauvegarder</button>
+      <button onclick="doExport()">Exporter le texte</button>
+      <button onclick="doExportPDF()">📄 Export PDF</button>
+      <button onclick="window.print()">Imprimer</button>
+      <button class="danger" onclick="resetList()">Réinitialiser</button>
+    </div>
+    <textarea id="exportBox" readonly></textarea>
+  </section>
+
+  <div id="saveModal" onclick="closeSaveModal()" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(3,6,10,.75); align-items:center; justify-content:center; padding:20px;">
+    <div class="kwbox" onclick="event.stopPropagation()">
+      <div class="kwtitle">Sauvegarder la liste</div>
+      <input id="saveNameInput" type="text" placeholder="Nom de la liste" style="width:100%; box-sizing:border-box; background:var(--panel); border:1px solid var(--line); color:var(--text); padding:9px 10px; border-radius:4px; font-family:var(--font-body); font-size:14px; margin-top:6px;" oninput="document.getElementById('saveNameError').style.display='none';">
+      <div id="saveNameError" style="display:none; color:var(--warn); font-size:11.5px; margin-top:6px; line-height:1.4;"></div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button onclick="confirmSave()">Enregistrer</button>
+        <button onclick="closeSaveModal()" style="background:none; border:1px solid var(--line); color:var(--dim);">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    Statistiques, capacités et emplacements d'armée : sources officielles Archon Studio (fiches P2P StarCraft-TMG, mai 2026).<br>
+    Coûts en Minerai et en Gaz : préremplis pour le Terran (site communautaire Stimpacked, recoupé avec les fiches officielles) — à confirmer pour Protoss et Zerg avec tes cartes physiques ou l'appli Command Center. Tous les champs de coût sont éditables, clique dessus pour corriger.
+  </div>
+
+  <div class="actions" style="margin-top:16px; margin-bottom:30px;">
+    <button onclick="showMenu()">← Retour au menu</button>
+    <button onclick="showLists()">📋 Voir mes listes</button>
+  </div>
+
+  <div id="kwModal" onclick="closeKeyword()">
+    <div class="kwbox" onclick="event.stopPropagation()">
+      <div class="kwtitle"><span id="kwModalTitle"></span><span id="kwModalBadge" class="kwbadge">à vérifier</span></div>
+      <div class="kwtext" id="kwModalText"></div>
+      <button onclick="closeKeyword()">Fermer</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+/* ===================== DONNÉES ===================== */
+/* Sources : fiches "P2P Card Sheets" officielles d'Archon Studio (starcraft-tmg.com/downloads), mai 2026.
+   Coûts en points (Minerai/Gaz) recoupés avec stimpacked.com quand disponibles ; sinon laissés éditables (null). */
+
+const FACTIONS = {
+  terran: {
+    label:"Terran", tagline:"Adapte. Stimule. Survis.", emblem:"⛨", accent:"#4fa8ff", accentDim:"#1c3a5e",
+    abilityCurrency:"PC",
+    factionCards:[
+      {id:"raiders", name:"Raynor's Raiders", cp:1, gas:0, slots:"Basique ×3 · Héros ×1 · Soutien ×1 · Air ×1",
+        ability:"Rapid Ingress — Place un Drone de Défense Ponctuelle ami n'importe où sur la table, à plus de 1\" de tout modèle ennemi. Retire cette unité en fin de Round."},
+      {id:"armedforces", name:"Terran Armed Forces", cp:1, gas:0, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
+        ability:"Tactical Retreat — L'unité active ignore la pénalité de Désengagement jusqu'à la fin du Round."}
+    ],
+    tacticalCards:[
+      {id:"academy", name:"Academy", gas:35, cp:1, unique:false, req:"Soutien ×2", ability:"Une fois par Round, quand une unité de Soutien amie active une Capacité Spéciale à coût PC, réduisez son coût de 1."},
+      {id:"armory", name:"Armory", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"La première Arme à Distance de l'unité Mécanique active gagne COUP CRITIQUE (1)."},
+      {id:"barracks", name:"Barracks", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"L'unité Biologique active effectue une action de Déplacement de 2\", hors limite d'actions."},
+      {id:"barracks_proxy", name:"Barracks (Proxy)", gas:40, cp:2, unique:true, req:"Basique ×2", ability:"Déploiement Biologique depuis un bord de table non-Entrée, à 10\"+ de l'ennemi."},
+      {id:"barracks_techlab", name:"Barracks (Tech Lab)", gas:45, cp:2, unique:true, req:"Basique ×1 · Élite ×1", ability:"L'unité Biologique active effectue un Déplacement de 2\" + son arme gagne ANTI-ESQUIVE (1)."},
+      {id:"dropship", name:"Dropship", gas:40, cp:1, unique:true, req:"Basique ×1 · Soutien ×1", ability:"Renvoie une unité au sol amie non-engagée en Réserve au lieu d'une action."},
+      {id:"engbay", name:"Engineering Bay", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"La première Arme à Distance de l'unité Biologique active gagne COUP CRITIQUE (1)."},
+      {id:"factory", name:"Factory", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"L'unité Mécanique active résout l'effet SOIN (2)."},
+      {id:"orbital", name:"Orbital Command", gas:25, cp:1, unique:true, req:"Basique ×1", ability:"Bloque le déploiement ennemi sur un bord de table choisi jusqu'à la fin du Round."},
+      {id:"supplydepot", name:"Supply Depot", gas:40, cp:1, unique:true, req:"Basique ×1 · Héros ×1 · Élite ×1", ability:"La Valeur de Supply de l'unité active est améliorée de 1 pour le contrôle des marqueurs de mission."}
+    ],
+    units:[
+      {id:"marine", name:"Marine", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"12\"",
+        options:[
+          {label:"6 modèles (sup 1)", points:160, supply:1},
+          {label:"9 modèles (sup 2)", points:210, supply:2}
+        ],
+        upgrades:["Combat Shield +20 pts", "Slugthrower +10 pts", "Grenades (Frag) +10 pts", "AGG-12 +10 pts", "Bayonet +20 pts"],
+        innate:["Stimpack"]},
+      {id:"marauder", name:"Marauder", role:"Basique", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"6+", armor:"4+", hp:5, size:2}, range:"12\"",
+        options:[
+          {label:"2 modèles (sup 1)", points:150, supply:1},
+          {label:"4 modèles (sup 2)", points:280, supply:2}
+        ],
+        upgrades:["Veteran of Tarsonis +20 pts", "Kinetic Foam +20 pts", "Laser Targeting Systems +20 pts"],
+        innate:["Stimpack","Concussive Shells"]},
+      {id:"raynors_raider", name:"Raynor's Raider (Marine)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"12\"",
+        options:[{label:"Escouade (jusqu'à 6 modèles, sup 1)", points:230, supply:1}], upgrades:[],
+        innate:["Stimpack","Raiders Roll!","Rapid Reinforcements"]},
+      {id:"goliath", name:"Goliath", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"7", evade:"—", armor:"4+", hp:10, size:3}, range:"8-18\"",
+        options:[{label:"1 modèle (sup 2)", points:190, supply:2}],
+        upgrades:["Ares-Class Targeting System +20 pts", "Scatter Missiles +30 pts", "Haywire Missiles +40 pts"],
+        innate:["Target Lock","Indomitable","Devastating Charge"]},
+      {id:"jim_raynor", name:"Jim Raynor", role:"Héros", unique:true, traits:"Biologique · Sol · Unique",
+        stats:{speed:"7", evade:"5+", armor:"4+", hp:8, size:"unique"}, range:"18\"",
+        options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Commander","Freedom Fighters","Orders"]},
+      {id:"medic", name:"Medic", role:"Soutien", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"Soutien 4-12\"",
+        options:[{label:"3 modèles (sup 1)", points:110, supply:1}],
+        upgrades:["Advanced Medic Facilities +60 pts", "A-13 Flash Grenade Launcher +20 pts", "Stabilizer Medpacks +30 pts"],
+        innate:["Restoration","Life Support","Medpack","Optical Flare"]},
+      {id:"pdd", name:"Point Defense Drone", role:"Autre", traits:"Blindé · Volant · Mécanique",
+        stats:{speed:"—", evade:"6+", armor:"6+", hp:3, size:1}, range:"Soutien",
+        options:[{label:"1 modèle (sup 1)", points:0, supply:1}], upgrades:[],
+        innate:["Point Defense Laser","Gliding","Structure"]},
+      {id:"siege_tank", name:"Siege Tank (nom à confirmer)", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"7", evade:"—", armor:"5+", hp:14, size:2}, range:"12-18\"",
+        options:[{label:"1 modèle (sup 2)", points:null, supply:2}],
+        upgrades:["Mode Transformation","Coordinated Strike","Shaped Blast","Smart Shells"],
+        innate:["Large","Heavy Plating","Indomitable","Aftershock Rounds","Point Blank","Devastating Charge"]}
+    ]
+  },
+
+  protoss: {
+    label:"Protoss", tagline:"Discipline. Puissance psi. Précision.", emblem:"◈", accent:"#c9a13b", accentDim:"#3a2f14",
+    abilityCurrency:"PE",
+    subfactionNote:"Daelaam = carte de faction standard. Khalai = sous-faction (nécessite Artanis). Nerazim = sous-faction (nécessite Zeratul) — vague 2.",
+    factionCards:[
+      {id:"daelaam", name:"Daelaam", cp:1, gas:null, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
+        ability:"Strategic Retreat / Photon Overcharge selon la carte tactique associée — DAE'UHL (passif) : quand une unité amie subit des dégâts, réduisez les Dégâts Totaux de 2 (minimum 1)."},
+      {id:"khalai", name:"Khalai", cp:1, gas:null, unique:true, slots:"Basique ×3 · Élite ×2 · Héros ×1",
+        ability:"Sous-faction liée à Artanis. Bound by the Khala — en fin d'activation, active immédiatement une autre unité amie éligible."},
+      {id:"nerazim", name:"Nerazim", cp:1, gas:null, unique:true, slots:"Basique ×2 · Élite ×3 · Héros ×1",
+        ability:"Sous-faction liée à Zeratul (vague 2). Might of the Nerazim (réaction) — quand une unité amie perd le statut CACHÉ, elle gagne BUFF Vitesse (2) et sa première arme utilisée gagne COUP CRITIQUE (2) / Darkness Descends (actif, Phase de Mouvement) — l'unité Biologique active gagne le statut CACHÉ jusqu'à la fin du Round."}
+    ],
+    tacticalCards:[
+      {id:"gateway", name:"Gateway", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Quick Strikes — la première Arme de Corps-à-corps de l'unité active gagne PRÉCISION (2)."},
+      {id:"warpgate", name:"Warp Gate", gas:40, cp:1, unique:true, req:"Basique ×2", ability:"Warp In — déploiement au sol depuis un bord non-Entrée, à 10\"+ de l'ennemi (1×/Round)."},
+      {id:"gate_chrono", name:"Gate Chronoboosted", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Quick Strikes + Zealous Charge (BUFF Vitesse (2))."},
+      {id:"twilight", name:"Twilight Council", gas:45, cp:1, unique:true, req:"Soutien ×1 · Élite ×1", ability:"Weapons of the Firstborn — l'arme à distance active gagne +4\" de portée / Veil of Shadows — SOIN (2) après un effet PLACE."},
+      {id:"warpprism", name:"Warp Prism", gas:35, cp:1, unique:true, req:"Basique ×2", ability:"Phase — effet PLACE (3) / Warp Conduit — réserve un renfort au sol en fin de Round."},
+      {id:"nexus", name:"Nexus", gas:35, cp:1, unique:true, req:"Basique ×2", ability:"Strategic Recall — retour en Réserve au lieu d'une action / Ancient Pride — la première arme utilisée gagne INSTANT."},
+      {id:"forge", name:"Forge", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"Ground Weapons — la première Arme à Distance gagne COUP CRITIQUE (1) / Ground Armor — TOUGH (1) sur un Jet d'Armure."},
+      {id:"observer", name:"Observer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Surveillance — retire le statut CACHÉ des ennemis à moins de 6\" d'un Indicateur de Faction / Gravitic Boosters — +1 à la distance de Charge."},
+      {id:"powerfield", name:"Power Field", gas:40, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Guardian Shell — l'unité gagne ESQUIVE (2) sur son prochain Jet d'Armure."},
+      {id:"overcharged", name:"Overcharged Nexus", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Photon Overcharge — inflige HITS 3 (1) à toute unité ennemie qui entre en jeu hors de son bord d'Entrée / Strategic Recall — retour en Réserve au lieu d'une action."},
+      {id:"voidseeker", name:"Void Seeker", gas:null, cp:1, unique:true, req:"Basique ×1 (Nerazim)", ability:"Vague 2. Personal Transport (actif, Phase de Mouvement) — au lieu d'effectuer une action, l'unité au sol active et Non-Engagée retourne en Réserve puis effectue une action de Déploiement / Anakh Su'n (actif, Phase de Mouvement) — cette unité gagne le statut CACHÉ jusqu'à ce qu'elle effectue une autre action."},
+      {id:"roboticsfacility", name:"Robotics Facility", gas:null, cp:1, unique:false, req:"Élite ×2", ability:"Vague 2. Plasma Shields (réaction) — à utiliser avant qu'une unité Mécanique et au sol amie fasse un Jet d'Armure. Si cette unité a le statut Bouclier, elle gagne DUR (1) et ESQUIVE (1) pour ce jet."}
+    ],
+    units:[
+      {id:"zealot", name:"Zealot", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:4, shield:3, size:2}, range:"Mêlée",
+        options:[{label:"3 modèles (sup 2)", points:160, supply:2}],
+        upgrades:["Leg Enhancements +20 pts", "My Life for Aiur +10 pts", "Zealous Round +10 pts", "We Stand As One +20 pts"],
+        innate:["Charge","Devastating Charge"]},
+      {id:"adept", name:"Adept", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"5/8", evade:"5+", armor:"5+", hp:3, shield:2, size:2}, range:"8\"",
+        options:[{label:"4 modèles (sup 1)", points:150, supply:1}],
+        upgrades:["Resonating Glaives +20 pts", "Guidance +10 pts", "Glaive Strike +20 pts"],
+        innate:["Psionic Presence","Psionic Transfer"]},
+      {id:"praetor_guard", name:"Praetor Guard (Zealot)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"5+", hp:4, shield:3, size:2}, range:"Mêlée",
+        options:[{label:"3 modèles (sup 2)", points:280, supply:2}],
+        upgrades:[], innate:["Shield Overcharge","Leg Enhancements","Charge","Devastating Charge","Psi Blades","Titan Killers","Precognition"]},
+      {id:"stalker", name:"Stalker", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"4/8", evade:"6+", armor:"4+", hp:6, shield:3, size:3}, range:"12\"",
+        options:[
+          {label:"1 modèle (sup 1)", points:170, supply:1},
+          {label:"2 modèles (sup 2)", points:270, supply:2}
+        ], upgrades:["Fury of the Nerazim +20/+30 pts (petite/grande escouade)", "Path of Shadows +20/+40 pts (petite/grande escouade)"],
+        innate:["Squadron","Blink"]},
+      {id:"sentry", name:"Sentry", role:"Soutien", traits:"Léger · Mécanique · Psionique · Sol",
+        stats:{speed:"4/7", evade:"6+", armor:"5+", hp:4, shield:2, size:1}, range:"8\"",
+        options:[{label:"2 modèles (sup 1)", points:130, supply:1}],
+        upgrades:["Solid-Field Projectors +20 pts", "Hallucination +30 pts"],
+        innate:["Restoration","Guardian Shield","Force Field"]},
+      {id:"artanis", name:"Artanis", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol",
+        stats:{speed:"7", evade:"5+", armor:"4+", hp:8, shield:4, size:2}, range:"Mêlée",
+        options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Commander","Phase Prism","Lightning Dash","Hierarch's Stand","Devastating Charge"]},
+      {id:"zeratul", name:"Zeratul", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol — Nerazim",
+        stats:{speed:"7", evade:"5+", armor:"5+", hp:5, shield:3, size:2}, range:"Mêlée",
+        options:[{label:"1 modèle (sup 1)", points:null, supply:1}], upgrades:[],
+        innate:["One with the Shadows","Prophetic Vision","Sentenced to Death","Void Prison","Void Blink","Devastating Charge","Shadow Strike"]},
+      {id:"nerazim_watchers", name:"Nerazim Watchers (Adept)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol — Nerazim",
+        stats:{speed:"5/8", evade:"5+", armor:"5+", hp:3, shield:2, size:2}, range:"8\"",
+        options:[
+          {label:"1-2 modèles (sup 0)", points:null, supply:0},
+          {label:"3-4 modèles (sup 1)", points:null, supply:1}
+        ], upgrades:[],
+        innate:["Path of Shadows","Nerazim Farsight","Psionic Transfer"]},
+      {id:"immortal", name:"Immortal", role:"Élite", traits:"Blindé · Mécanique · Sol",
+        stats:{speed:"7", evade:"—", armor:"4+", hp:8, shield:6, size:3}, range:"12\"",
+        options:[{label:"1 modèle (sup 2)", points:null, supply:2}],
+        upgrades:["Phase Disruptors (remplace les Photon Disruptors)"],
+        innate:["Improved Barrier","Indomitable","Devastating Charge"]},
+      {id:"pylon", name:"Pylon", role:"Autre", traits:"Blindé · Sol · Structure",
+        stats:{speed:"—", evade:"—", armor:"5+", hp:8, shield:2, size:3}, range:"—",
+        options:[{label:"1 modèle (sup 0)", points:null, supply:0}], upgrades:[],
+        innate:["Khalai Ingenuity","Structure","Warp Conduit"]}
+    ]
+  },
+
+  zerg: {
+    label:"Zerg", tagline:"L'Essaim consume tout.", emblem:"❋", accent:"#7fd13b", accentDim:"#233a14",
+    abilityCurrency:"BM",
+    subfactionNote:"Zerg Swarm = carte de faction standard. Kerrigan's Swarm = sous-faction (nécessite Kerrigan).",
+    factionCards:[
+      {id:"zergswarm", name:"Zerg Swarm", cp:1, gas:null, slots:"Basique ×3 · Élite ×1 · Soutien ×1 · Air ×1",
+        ability:"Zerg Creep (passif) — pendant la construction de liste, choisis exactement une Carte de Terrain Rampant à ajouter (coût indiqué le cas échéant)."},
+      {id:"kerrigans_swarm", name:"Kerrigan's Swarm", cp:1, gas:null, unique:true, slots:"Basique ×3 · Élite ×2 · Héros ×1",
+        ability:"Sous-faction liée à Kerrigan. Malevolent Matriarch (bonus de Charge sur Rampant) + accès aux unités Raptor/Ver Oméga exclusives."}
+    ],
+    tacticalCards:[
+      {id:"spawningpool", name:"Spawning Pool", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Feral Rage — la première Arme de Corps-à-corps active gagne PRÉCISION (2)."},
+      {id:"spawningpool_six", name:"Spawning Pool (Six Pool)", gas:40, cp:2, unique:true, req:"Basique ×2", ability:"Feral Rage + Timing Push (déploiement Zergling hors bord d'Entrée)."},
+      {id:"evochamber", name:"Evolution Chamber", gas:30, cp:1, unique:false, req:"Basique ×1", ability:"Extended Claws (+1 aux jets d'IMPACT) / Carapace (TOUGH (1))."},
+      {id:"roachwarren", name:"Roach Warren", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Nasty Surprise — l'unité au sol active perd le statut Enterré."},
+      {id:"hydraliskden", name:"Hydralisk Den", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"Missile Attacks — la première Arme à Distance active gagne PRÉCISION (1)."},
+      {id:"hatchery", name:"Hatchery", gas:30, cp:1, unique:false, req:"Soutien ×1", ability:"Lie in Wait (statut Enterré) / Creep Spread (pose un Tumeur de Rampant)."},
+      {id:"lair", name:"Lair", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Creep Spread / Predation (armes de corps-à-corps gagnent INSTANT)."},
+      {id:"overseer", name:"Overseer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Pneumatized Carapace (rejet de D6 sur distance de Charge) / Oversight Mode (retire CACHÉ ennemi)."},
+      {id:"overlord", name:"Overlord", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Ventral Sacs — réserve un renfort au sol en fin de Round."},
+      {id:"accelcreep", name:"Accelerating Creep", gas:0, cp:0, unique:true, req:"Carte de Terrain Rampant (choisie via Zerg Swarm)", ability:"Speed on Creep — +1 Vitesse sur Rampant / Living Glob of Tissue (Tumeurs indestructibles au déplacement) / Creep Removal (retire le Tumeur si un ennemi termine une action à 1\")."},
+      {id:"malignantcreep", name:"Malignant Creep", gas:10, cp:0, unique:true, req:"Carte de Terrain Rampant (Kerrigan's Swarm uniquement)", ability:"Malevolent Matriarch — bonus de Charge sur Rampant / Living Glob of Tissue / Creep Removal."}
+    ],
+    units:[
+      {id:"zergling", name:"Zergling", role:"Basique", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/8", evade:"4+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[
+          {label:"12 modèles (sup 1)", points:180, supply:1},
+          {label:"18 modèles (sup 2)", points:220, supply:2}
+        ], upgrades:["Burrow Ambush +20/+30 pts (petite/grande escouade)", "Shredding Claws +10 pts", "Adrenal Glands +20 pts"],
+        innate:["Squadron","Metabolic Boost","Devastating Charge"]},
+      {id:"swarmling", name:"Swarmling (Zergling)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/8", evade:"5+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[{label:"18 modèles (sup 1)", points:260, supply:1}],
+        upgrades:["Burrow Ambush +20 pts"],
+        innate:["Squadron","Zergling Reconstitution","Devastating Charge"]},
+      {id:"raptor", name:"Raptor (Zergling)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol",
+        stats:{speed:"5/9", evade:"4+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[
+          {label:"12 modèles (sup 1)", points:240, supply:1},
+          {label:"18 modèles (sup 2)", points:300, supply:2}
+        ], upgrades:["Burrow Ambush +20 pts", "Shredding Claws +10 pts", "Adrenal Glands +20 pts"],
+        innate:["Squadron","Raptor Strain","Adrenal Overload","Devastating Charge","Metabolic Boost"]},
+      {id:"roach", name:"Roach", role:"Basique", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
+        options:[{label:"3 modèles (sup 1)", points:170, supply:1}],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        innate:["Burrow","Regeneration","Devastating Charge"]},
+      {id:"corpser", name:"Corpser (Roach)", role:"Basique", unique:true, traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
+        options:[{label:"3 modèles (sup 1)", points:240, supply:1}],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        innate:["Burrow","Roachling Infestation","Regeneration","Devastating Charge"]},
+      {id:"vile", name:"Vile (Roach)", role:"Basique", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
+        options:[{label:"3 modèles (sup 1)", points:200, supply:1}],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        innate:["Burrow","Debilitating Saliva","Devastating Charge","Regeneration"]},
+      {id:"roachling", name:"Roachling", role:"Autre", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/7", evade:"6+", armor:"6+", hp:1, size:1}, range:"Mêlée",
+        options:[{label:"3 modèles (sup 0) — invoqué par Corpser, non achetable seul", points:0, supply:0}],
+        upgrades:[], innate:["Underdeveloped Claws"]},
+      {id:"omega_worm", name:"Omega Worm", role:"Autre", unique:true, traits:"Blindé · Biologique · Sol · Structure — Kerrigan's Swarm",
+        stats:{speed:"—", evade:"—", armor:"5+", hp:10, size:3}, range:"—",
+        options:[{label:"1 modèle (sup 0)", points:0, supply:0}], upgrades:[],
+        innate:["Detection","Source of Creep","Structure","Omega Network"]},
+      {id:"hydralisk", name:"Hydralisk", role:"Élite", traits:"Biologique · Léger · Sol",
+        stats:{speed:"4/8", evade:"5+", armor:"5+", hp:4, size:2}, range:"12\"",
+        options:[
+          {label:"2 modèles (sup 2)", points:140, supply:2},
+          {label:"4 modèles (sup 3)", points:260, supply:3}
+        ], upgrades:["Ancillary Carapace +20/+40 pts (petite/grande escouade)", "Lurking +10/+20 pts", "Burrow Ambush +20/+40 pts", "Grooved Spines +20/+40 pts"],
+        innate:["Squadron","Lunge"]},
+      {id:"queen", name:"Queen", role:"Soutien", traits:"Blindé · Biologique · Psionique · Sol",
+        stats:{speed:"4", evade:"—", armor:"4+", hp:9, size:3}, range:"6-12\"",
+        options:[{label:"1 modèle (sup 1)", points:150, supply:1}],
+        upgrades:["Creep Speed +10 pts", "Domineering Presence +10 pts"],
+        innate:["Spawn Creep Tumor","Restoration","Transfusion","Psionic Link","Devastating Charge"]},
+      {id:"kerrigan", name:"Kerrigan", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol",
+        stats:{speed:"7", evade:"6+", armor:"5+", hp:9, size:2}, range:"8\"",
+        options:[{label:"1 modèle (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Commander","Crushing Grip","Mutating Carapace","Leaping Strike","Devastating Charge"]},
+      {id:"kerrigan_raptor", name:"Kerrigan Swarm Raptor (Zergling)", role:"Élite", unique:true, traits:"Biologique · Léger · Sol — Kerrigan's Swarm",
+        stats:{speed:"5/9", evade:"4+", armor:"5+", hp:2, size:1}, range:"Mêlée",
+        options:[{label:"6 modèles (sup 1)", points:250, supply:1}], upgrades:[],
+        innate:["Squadron","Raptor Strain","Leap","Devastating Charge","Adrenal Overload"]},
+      {id:"ravager", name:"Ravager", role:"Élite", traits:"Blindé · Biologique · Sol",
+        stats:{speed:"4/8", evade:"5+", armor:"5+", hp:9, size:3}, range:"12\"",
+        options:[
+          {label:"1 modèle (sup 1)", points:null, supply:1},
+          {label:"2 modèles (sup 2)", points:null, supply:2}
+        ], upgrades:[],
+        innate:["Squadron","Deep Tunnel","Corrosive Bile","Devastating Charge"]}
+    ]
+  }
+};
+
+const SIZE_PRESETS = [1000, 1500, 2000];
+
+/* ===================== ÉTAT ===================== */
+
+let state = {
+  minerals: 2000,
+  faction: "terran",
+  factionCardId: null,
+  units: [],
+  cards: [],
+  overrides: {},  // { "unitId:optIndex": pointsValue, "card:cardId": gasValue }
+  currentListId: null,
+  currentListName: ""
+};
+
+let selectedUpgrades = {}; // { unitId: Set(upgradeIndex) } — transient, not persisted
+let selectedOption = {}; // { unitId: optionIndex } — transient, which squad size is chosen before adding
+let collapsedGroups = {}; // { "unit:<role>": true, tactical: true } — transient UI collapse state, not persisted
+
+function selectOption(unitId, idx){
+  selectedOption[unitId] = (selectedOption[unitId]===idx) ? undefined : idx;
+  render();
+}
+
+function parseUpgradeCost(str){
+  // Matches "Name +20 pts" or "Name +20/+40 pts (note)" -> {label, cost, altCost, note}
+  const m = str.match(/^(.*?)\s*\+(\d+)(?:\/\+(\d+))?\s*pts?(?:\s*\((.*)\))?$/i);
+  if(m){
+    return {label: m[1].trim(), cost: parseInt(m[2]), altCost: m[3]?parseInt(m[3]):null, note: m[4]||null};
+  }
+  // Fallback: strip trailing " — X actif/passif/réaction" style suffix for the label
+  const m2 = str.match(/^(.*?)\s*—\s*.*$/);
+  return {label: m2?m2[1].trim():str, cost: null, altCost: null, note: null};
+}
+
+// Glossaire des mots-clés (Partie 11 du livret officiel, non accessible via l'extraction PDF au-delà de la page 63).
+// confirmed:true = texte confirmé ailleurs dans les règles officielles ou les exemples de partie du livret.
+// confirmed:false = interprétation raisonnable déduite du contexte des cartes, à vérifier avec le livret officiel.
+const KEYWORDS = {
+  "ENGAGÉ":{confirmed:true, text:"Une unité Sol est Engagée si l'un de ses modèles est à moins de 1\" (Aire d'Engagement) d'un modèle Ennemi Sol, sous réserve que les Tags de Combat correspondent (Sol n'Engage que Sol ; le Volant n'est jamais Engagé), qu'aucun terrain de Taille 2+ ne s'interpose, et que les niveaux d'élévation le permettent (Haut Terrain et Niveau du Sol ne s'Engagent jamais entre eux). Dès qu'un modèle de l'unité est Engagé, toute l'unité l'est. Une unité Engagée ne peut pas effectuer un Mouvement standard : elle doit Désengager ou Tenir, et subit des restrictions sur ses Attaques à Distance."},
+  "ENGAGEMENT":{confirmed:true, text:"L'Aire d'Engagement s'étend à 1\" à l'horizontale autour du socle de tout modèle, mesurée en vue de dessus sans tenir compte de la hauteur. Deux modèles Ennemis Sol dont les Aires d'Engagement se chevauchent sont Engagés. Elle est utilisée pour les restrictions de Mouvement, le Désengagement, la Charge, le Rang de Combat et les effets PLACE. Les armes de Mêlée ont une Portée « E » : elles ne peuvent frapper que dans l'Aire d'Engagement."},
+  "EN COHÉRENCE":{confirmed:true, text:"Tous les modèles d'une unité doivent être Entièrement à moins de 3\" du Modèle Meneur, avec un Lien de Cohérence valide, à la fin de toute action qui les repositionne."},
+  "MODÈLE MENEUR":{confirmed:true, text:"Point de référence temporaire utilisé pour exécuter le mouvement d'une unité : il se déplace en premier lors d'un Mouvement, Déploiement, Course, Charge, Désengagement, Réorganisation des Rangs ou toute action l'exigeant, puis les autres modèles sont replacés En Cohérence autour de sa nouvelle position. Il détermine aussi la catégorie de Gap Clearance de l'unité et ses interactions avec les restrictions de terrain."},
+  "SUPPLY":{confirmed:true, text:"Caractéristique dynamique liée au nombre de modèles restants dans l'unité (voir le Profil de Supply sur sa carte). Utilisée pour le Déploiement, le Contrôle des Marqueurs de Mission et les tests de Désengagement."},
+  "BOUCLIER":{confirmed:true, text:"S'ajoute aux Points de Vie du premier modèle de l'unité. Le statut Bouclié est perdu quand les Dégâts Totaux dépassent cette valeur ou que le premier modèle est retiré. Ne peut pas être restauré par SOIN."},
+  "SHIELD":{confirmed:true, text:"S'ajoute aux Points de Vie du premier modèle de l'unité. Le statut Bouclié est perdu quand les Dégâts Totaux dépassent cette valeur ou que le premier modèle est retiré. Ne peut pas être restauré par SOIN."},
+  "SURGE":{confirmed:true, text:"Si le Type de Surge de l'arme correspond au Tag de Combat de la cible, un nombre de dés égal au résultat du dé de Surge passe directement de la Réserve d'Armure à la Réserve de Dégâts, sans Jet d'Armure."},
+  "COUP CRITIQUE":{confirmed:true, text:"Les dés retirés de la Réserve d'Armure grâce à ce mot-clé passent directement dans la Réserve de Dégâts, sans Jet d'Armure — comme un effet de Surge."},
+  "CRITICAL HIT":{confirmed:true, text:"Les dés retirés de la Réserve d'Armure grâce à ce mot-clé passent directement dans la Réserve de Dégâts, sans Jet d'Armure — comme un effet de Surge."},
+  "STAY IN PLAY":{confirmed:true, text:"Ce jeton ou marqueur n'est pas retiré automatiquement en fin de Round."},
+  "REPEATABLE":{confirmed:true, text:"Cette capacité Active peut être utilisée plusieurs fois par Round par la même unité, au lieu d'une seule fois normalement."},
+  "PIERCE":{confirmed:true, text:"Contre une cible ayant le Tag de Combat indiqué, chaque dé de la Réserve de Dégâts inflige la valeur indiquée en Dégâts au lieu de 1."},
+  "PERCE":{confirmed:true, text:"Contre une cible ayant le Tag de Combat indiqué, chaque dé de la Réserve de Dégâts inflige la valeur indiquée en Dégâts au lieu de 1."},
+  "LONG RANGE":{confirmed:true, text:"La Portée maximale de cette arme passe à X\". La distance de chaque modèle attaquant à la cible est mesurée individuellement : dans le profil de Portée normal, l'attaque se résout normalement ; au-delà mais dans les X\", le modèle subit un Modificateur de -1 à son Jet pour Toucher. Si un Batch contient des modèles en Portée Standard et en Longue Portée, générez séparément les jets pour Toucher des deux groupes."},
+  "LONGUE PORTÉE":{confirmed:true, text:"La Portée maximale de cette arme passe à X\". La distance de chaque modèle attaquant à la cible est mesurée individuellement : dans le profil de Portée normal, l'attaque se résout normalement ; au-delà mais dans les X\", le modèle subit un Modificateur de -1 à son Jet pour Toucher. Si un Batch contient des modèles en Portée Standard et en Longue Portée, générez séparément les jets pour Toucher des deux groupes."},
+  "SIDEARM":{confirmed:true, text:"Arme secondaire qu'un modèle peut utiliser en plus de son arme principale, sans la restriction habituelle d'une seule arme par modèle lors d'une Attaque à Distance ou de Mêlée. Un modèle équipé de plusieurs armes SIDEARM peut toutes les utiliser dans la même activation. Chaque SIDEARM se résout dans un Batch séparé, ce qui lui permet de cibler une unité Ennemie différente de celle visée par les autres armes de l'unité, sous réserve des règles normales d'éligibilité de cible."},
+  "ARME LATÉRALE":{confirmed:true, text:"Arme secondaire qu'un modèle peut utiliser en plus de son arme principale, sans la restriction habituelle d'une seule arme par modèle lors d'une Attaque à Distance ou de Mêlée. Un modèle équipé de plusieurs armes SIDEARM peut toutes les utiliser dans la même activation. Chaque SIDEARM se résout dans un Batch séparé, ce qui lui permet de cibler une unité Ennemie différente de celle visée par les autres armes de l'unité, sous réserve des règles normales d'éligibilité de cible."},
+  "HIDDEN":{confirmed:true, text:"Cette unité ne peut être ciblée par une Attaque à Distance ni par une Capacité Spéciale nécessitant la Ligne de Vue, sauf si le modèle qui agit est à moins de 4\" d'elle. Elle est immunisée au mot-clé IMPACT et peut faire un Jet d'Esquive contre chaque attaque qui la cible. HIDDEN est un Statut."},
+  "CACHÉ":{confirmed:true, text:"Cette unité ne peut être ciblée par une Attaque à Distance ni par une Capacité Spéciale nécessitant la Ligne de Vue, sauf si le modèle qui agit est à moins de 4\" d'elle. Elle est immunisée au mot-clé IMPACT et peut faire un Jet d'Esquive contre chaque attaque qui la cible. CACHÉ est un Statut."},
+  "BURROWED":{confirmed:true, text:"Statut. Un modèle qui gagne BURROWED gagne aussi HIDDEN, et les unités BURROWED regagnent HIDDEN au Début du Round ; perdre BURROWED fait perdre HIDDEN. Sa Taille est traitée comme 0 à toutes fins utiles, et sa Valeur de Supply Actuelle comme 0 pour les tests de Désengagement. Une unité BURROWED ne peut ni Contrôler ni Contester de Marqueur de Mission. Tant qu'elle est BURROWED, elle ne peut effectuer que Déployer, Bouger, Désengager, Tenir et Réorganiser les Rangs ; effectuer l'une de ces actions (sauf Tenir) retire aussitôt le statut. Elle peut utiliser ses Capacités Spéciales sauf mention contraire, et faire un Jet d'Esquive contre chaque attaque la ciblant. Les autres modèles peuvent traverser ses modèles tant qu'ils ne terminent pas dans son Aire d'Engagement. Si elle est Engagée au début de la Phase de Combat, elle doit être Activée mais ne peut effectuer qu'une Attaque de Mêlée en restant BURROWED : elle peut d'abord Réorganiser les Rangs (ce qui retire aussitôt le statut) puis terminer normalement l'Attaque de Mêlée ; si elle ne peut/veut pas Réorganiser les Rangs, elle n'attaque pas. Les unités Ennemies Engagées avec elle l'attaquent normalement quel que soit son statut."},
+  "ENTERRÉ":{confirmed:true, text:"Statut. Un modèle qui gagne ENTERRÉ gagne aussi CACHÉ, et les unités ENTERRÉ regagnent CACHÉ au Début du Round ; perdre ENTERRÉ fait perdre CACHÉ. Sa Taille est traitée comme 0 à toutes fins utiles, et sa Valeur de Supply Actuelle comme 0 pour les tests de Désengagement. Une unité ENTERRÉ ne peut ni Contrôler ni Contester de Marqueur de Mission. Tant qu'elle est ENTERRÉ, elle ne peut effectuer que Déployer, Bouger, Désengager, Tenir et Réorganiser les Rangs ; effectuer l'une de ces actions (sauf Tenir) retire aussitôt le statut. Elle peut utiliser ses Capacités Spéciales sauf mention contraire, et faire un Jet d'Esquive contre chaque attaque la ciblant. Les autres modèles peuvent traverser ses modèles tant qu'ils ne terminent pas dans son Aire d'Engagement. Si elle est Engagée au début de la Phase de Combat, elle doit être Activée mais ne peut effectuer qu'une Attaque de Mêlée en restant ENTERRÉ : elle peut d'abord Réorganiser les Rangs (ce qui retire aussitôt le statut) puis terminer normalement l'Attaque de Mêlée ; si elle ne peut/veut pas Réorganiser les Rangs, elle n'attaque pas. Les unités Ennemies Engagées avec elle l'attaquent normalement quel que soit son statut."},
+  "PRECISION":{confirmed:true, text:"Après un Jet pour Toucher, déplacez jusqu'à X dés d'Attaque ratés directement dans la Réserve d'Armure : ils sont traités comme des Touches réussies à tous égards, y compris pour le Surge."},
+  "PRÉCISION":{confirmed:true, text:"Après un Jet pour Toucher, déplacez jusqu'à X dés d'Attaque ratés directement dans la Réserve d'Armure : ils sont traités comme des Touches réussies à tous égards, y compris pour le Surge."},
+  "ANTI-EVADE":{confirmed:true, text:"Lors d'une attaque avec cette arme contre une unité Ennemie, la cible subit un Modificateur de -X à son Jet d'Esquive pour cette attaque."},
+  "ANTI-ESQUIVE":{confirmed:true, text:"Lors d'une attaque avec cette arme contre une unité Ennemie, la cible subit un Modificateur de -X à son Jet d'Esquive pour cette attaque."},
+  "TOUGH":{confirmed:true, text:"Lors d'un Jet d'Armure de cette unité, transformez jusqu'à X résultats ratés en réussites (traités comme atteignant ou dépassant la caractéristique Armure) : ils sont défaussés sans passer dans la Réserve de Dégâts."},
+  "RÉSISTANT":{confirmed:true, text:"Lors d'un Jet d'Armure de cette unité, transformez jusqu'à X résultats ratés en réussites (traités comme atteignant ou dépassant la caractéristique Armure) : ils sont défaussés sans passer dans la Réserve de Dégâts."},
+  "INSTANT":{confirmed:true, text:"Les unités Ennemies ne peuvent déclarer ni résoudre de Capacité de Réaction en réponse aux attaques faites avec cette arme."},
+  "IMPACT":{confirmed:true, text:"Immédiatement après qu'une unité termine une Charge réussie, chaque modèle au Rang de Combat ou de Soutien génère un Impact : contre une seule unité Ennemie, tous les X dés lui reviennent ; contre plusieurs, le contrôleur peut les répartir. Lancez les dés alloués à chaque unité (Jet d'Impact) : chaque résultat de Y ou plus place 1 dé dans la Réserve d'Armure de la cible, avec Jets d'Armure immédiats. Ces touches ne génèrent pas de Surge et traitent les Dégâts comme 1."},
+  "SPECIALIST":{confirmed:true, text:"Une unité ne peut inclure qu'un seul modèle équipé de cette arme ; aucune amélioration ne peut en configurer plus d'un exemplaire."},
+  "SPÉCIALISTE":{confirmed:true, text:"Une unité ne peut inclure qu'un seul modèle équipé de cette arme ; aucune amélioration ne peut en configurer plus d'un exemplaire."},
+  "INDIRECT FIRE":{confirmed:true, text:"Les Attaques à Distance de cette arme peuvent ignorer la Ligne de Vue pour choisir une cible et résoudre les Dégâts. La cible doit rester à Portée. Si elle n'a pas la Ligne de Vue sur l'attaquant, elle peut faire un Jet d'Esquive contre cette arme."},
+  "TIR INDIRECT":{confirmed:true, text:"Les Attaques à Distance de cette arme peuvent ignorer la Ligne de Vue pour choisir une cible et résoudre les Dégâts. La cible doit rester à Portée. Si elle n'a pas la Ligne de Vue sur l'attaquant, elle peut faire un Jet d'Esquive contre cette arme."},
+  "LOCKED IN":{confirmed:true, text:"Lors d'une Attaque à Distance avec cette arme, ajoutez X au RoA de cette attaque si la cible a le statut STATIONARY."},
+  "VERROUILLÉ":{confirmed:true, text:"Lors d'une Attaque à Distance avec cette arme, ajoutez X au RoA de cette attaque si la cible a le statut STATIONARY."},
+  "BULKY":{confirmed:true, text:"Cette arme ne peut pas être utilisée pour effectuer une Attaque à Distance tant que l'unité est Engagée."},
+  "PINPOINT":{confirmed:true, text:"Les Attaques à Distance de cette arme peuvent cibler des unités Ennemies Engagées, en ignorant la restriction habituelle liée au statut Engagé."},
+  "DISPLACEMENT":{confirmed:true, text:"Si le Modèle Meneur termine un Mouvement, Déploiement, Course, Charge, Désengagement, Réorganisation des Rangs ou une Capacité Spéciale en chevauchant ce Jeton ou ce modèle, le joueur contrôleur du Modèle Meneur le place aussitôt en Contact Socle-à-Socle avec lui, ou aussi près que possible si ce n'est pas possible."},
+  "DÉPLACEMENT":{confirmed:true, text:"Si le Modèle Meneur termine un Mouvement, Déploiement, Course, Charge, Désengagement, Réorganisation des Rangs ou une Capacité Spéciale en chevauchant ce Jeton ou ce modèle, le joueur contrôleur du Modèle Meneur le place aussitôt en Contact Socle-à-Socle avec lui, ou aussi près que possible si ce n'est pas possible."},
+  "SUMMON":{confirmed:true, text:"Placez le Modèle Meneur de l'unité nommée en Contact Socle-à-Socle avec l'unité Parente, puis les autres modèles En Cohérence, hors de l'Aire d'Engagement de toute unité Ennemie ; elle ne peut pas être placée dans la Zone d'Influence adverse. Placez un Marqueur d'Activation à côté d'elle : elle ne peut pas être Activée pendant la Phase où elle est invoquée ; ensuite, elle doit être Activée immédiatement après l'activation suivante de son unité Parente. Le joueur doit disposer d'assez de Supply Disponible ; si la Valeur de Supply Actuelle totale dépasserait le Pool de Supply, l'invocation est impossible. Si l'unité Parente n'est plus sur le champ de bataille, l'unité invoquée peut être Activée normalement."},
+  "RESPAWN":{confirmed:true, text:"Retourne jusqu'à X modèles Détruits dans cette unité. Ce retour ne peut pas faire passer la Valeur de Supply Actuelle de l'unité dans une tranche supérieure. Chaque modèle revenu est placé en Contact Socle-à-Socle avec un modèle existant de l'unité, hors de l'Aire d'Engagement de toute unité Ennemie ; s'il ne peut être placé légalement, il ne revient pas."},
+  "PLACE":{confirmed:true, text:"Choisissez un Modèle Meneur, retirez-le et replacez-le Entièrement à moins de X\" de sa position de départ, puis retirez et replacez les autres modèles de l'unité en maintenant la Cohérence. PLACE ignore le Gap Clearance et les contraintes d'élévation. Le Modèle Meneur est reposé directement, sans suivre de trajectoire, mais doit terminer dans une position légale. Utilisé en Phase d'Assaut, un modèle peut ainsi être replacé dans l'Aire d'Engagement d'un modèle Ennemi (l'unité devient alors Engagée)."},
+  "SOIN":{confirmed:true, text:"Retire un nombre de marqueurs de Dégâts égal à la valeur indiquée d'une unité amie ciblée."},
+  "HEAL":{confirmed:true, text:"Retire un nombre de marqueurs de Dégâts égal à la valeur indiquée d'une unité amie ciblée."},
+  "ENGAGEMENT RANGE":{confirmed:true, text:"L'Aire d'Engagement s'étend à 1\" à l'horizontale autour du socle de tout modèle, mesurée en vue de dessus sans tenir compte de la hauteur. Deux modèles Ennemis Sol dont les Aires d'Engagement se chevauchent sont Engagés. Elle est utilisée pour les restrictions de Mouvement, le Désengagement, la Charge, le Rang de Combat et les effets PLACE. Les armes de Mêlée ont une Portée « E » : elles ne peuvent frapper que dans l'Aire d'Engagement."},
+  "PORTÉE D'ENGAGEMENT":{confirmed:true, text:"L'Aire d'Engagement s'étend à 1\" à l'horizontale autour du socle de tout modèle, mesurée en vue de dessus sans tenir compte de la hauteur. Deux modèles Ennemis Sol dont les Aires d'Engagement se chevauchent sont Engagés. Elle est utilisée pour les restrictions de Mouvement, le Désengagement, la Charge, le Rang de Combat et les effets PLACE. Les armes de Mêlée ont une Portée « E » : elles ne peuvent frapper que dans l'Aire d'Engagement."},
+  "POINT D'ACCÈS":{confirmed:true, text:"Partie d'un Terrain reliant deux niveaux d'élévation. Un modèle qui se déplace via un POINT D'ACCÈS peut changer de niveau d'élévation."},
+  "ACCESS POINT":{confirmed:true, text:"Partie d'un Terrain reliant deux niveaux d'élévation. Un modèle qui se déplace via un POINT D'ACCÈS peut changer de niveau d'élévation."},
+  "JOUEUR ACTIF":{confirmed:true, text:"Le joueur dont c'est le tour d'agir."},
+  "ACTIVE PLAYER":{confirmed:true, text:"Le joueur dont c'est le tour d'agir."},
+  "EMPLACEMENT D'ARMÉE":{confirmed:true, text:"Détermine combien et quels types d'unités peuvent être inclus dans une armée. Chaque Emplacement a un type précis (Core, Élite, Support ou Héros). Chaque unité occupe un nombre d'Emplacements égal à sa Valeur de Supply de départ. La Carte de Faction fournit le pool initial d'Emplacements ; d'autres s'achètent avec du Vespene Gas via des Cartes Tactiques. Les Emplacements inutilisés sont perdus : ils ne peuvent être ni convertis, ni échangés, ni reportés."},
+  "ARMY SLOT":{confirmed:true, text:"Détermine combien et quels types d'unités peuvent être inclus dans une armée. Chaque Emplacement a un type précis (Core, Élite, Support ou Héros). Chaque unité occupe un nombre d'Emplacements égal à sa Valeur de Supply de départ. La Carte de Faction fournit le pool initial d'Emplacements ; d'autres s'achètent avec du Vespene Gas via des Cartes Tactiques. Les Emplacements inutilisés sont perdus : ils ne peuvent être ni convertis, ni échangés, ni reportés."},
+  "SUPPLY DISPONIBLE":{confirmed:true, text:"Capacité de Supply restante pour les nouveaux déploiements : Pool de Supply moins la Valeur de Supply Actuelle totale des unités Amies sur le champ de bataille. Une unité ne peut être déployée depuis les Réserves que si sa Valeur de Supply Actuelle est inférieure ou égale à la Supply Disponible. Les pertes libèrent de la Supply Disponible pour de nouvelles arrivées. Au dernier Round, le Pool de Supply devient illimité et cette restriction est levée."},
+  "AVAILABLE SUPPLY":{confirmed:true, text:"Capacité de Supply restante pour les nouveaux déploiements : Pool de Supply moins la Valeur de Supply Actuelle totale des unités Amies sur le champ de bataille. Une unité ne peut être déployée depuis les Réserves que si sa Valeur de Supply Actuelle est inférieure ou égale à la Supply Disponible. Les pertes libèrent de la Supply Disponible pour de nouvelles arrivées. Au dernier Round, le Pool de Supply devient illimité et cette restriction est levée."},
+  "TERRAIN BLOQUANT":{confirmed:true, text:"Tout élément de terrain avec une Taille Effective de 1 ou plus. Bloque la Ligne de Vue selon les règles de Couverture. Le fait qu'un modèle puisse le traverser dépend séparément des règles de mouvement, de la Taille du terrain, des Points d'Accès, du Gap Clearance et de tout mot-clé de terrain applicable."},
+  "BLOCKING TERRAIN":{confirmed:true, text:"Tout élément de terrain avec une Taille Effective de 1 ou plus. Bloque la Ligne de Vue selon les règles de Couverture. Le fait qu'un modèle puisse le traverser dépend séparément des règles de mouvement, de la Taille du terrain, des Points d'Accès, du Gap Clearance et de tout mot-clé de terrain applicable."},
+  "BONUS":{confirmed:true, text:"L'unité gagne un bonus de X à la caractéristique indiquée jusqu'à la fin du Round. Pour une caractéristique de type Seuil (ex. Armure, Toucher), on réduit la valeur de X (plus facile à réussir). Pour une caractéristique de type Valeur (ex. Vitesse, RoA), on l'augmente de X."},
+  "BUFF":{confirmed:true, text:"L'unité gagne un bonus de X à la caractéristique indiquée jusqu'à la fin du Round. Pour une caractéristique de type Seuil (ex. Armure, Toucher), on réduit la valeur de X (plus facile à réussir). Pour une caractéristique de type Valeur (ex. Vitesse, RoA), on l'augmente de X."},
+  "TAGS DE COMBAT":{confirmed:true, text:"Mots-clés imprimés sur une Carte d'Unité identifiant sa nature physique et sa classe tactique. Tags de Type : Blindé, Biologique, Léger, Mécanique, Psionique, Volant et Sol. Certaines armes ne ciblent que des Tags précis (ex. « Cible : Volant »), l'efficacité du Surge d'une arme ne se déclenche que si la cible a le Tag indiqué dans son Type de Surge, et des bonus comme ANTI-ESQUIVE (X) ou PERCE (X) s'appliquent souvent uniquement contre certains Tags. Le Tag Sol est distinct du niveau d'élévation NIVEAU DU SOL : une unité Volante posée sur le tapis est au Niveau du Sol mais n'a pas le Tag Sol."},
+  "COMBAT TAGS":{confirmed:true, text:"Mots-clés imprimés sur une Carte d'Unité identifiant sa nature physique et sa classe tactique. Tags de Type : Blindé, Biologique, Léger, Mécanique, Psionique, Volant et Sol. Certaines armes ne ciblent que des Tags précis (ex. « Cible : Volant »), l'efficacité du Surge d'une arme ne se déclenche que si la cible a le Tag indiqué dans son Type de Surge, et des bonus comme ANTI-ESQUIVE (X) ou PERCE (X) s'appliquent souvent uniquement contre certains Tags. Le Tag Sol est distinct du niveau d'élévation NIVEAU DU SOL : une unité Volante posée sur le tapis est au Niveau du Sol mais n'a pas le Tag Sol."},
+  "TIR CONCENTRÉ":{confirmed:true, text:"Les attaques de cette arme ne retirent pas plus de X modèles comme pertes. Une fois X modèles retirés, les Dégâts Totaux restants sont défaussés sans être enregistrés en Marqueur de Dégâts et ne sont pas reportés."},
+  "CONCENTRATED FIRE":{confirmed:true, text:"Les attaques de cette arme ne retirent pas plus de X modèles comme pertes. Une fois X modèles retirés, les Dégâts Totaux restants sont défaussés sans être enregistrés en Marqueur de Dégâts et ne sont pas reportés."},
+  "JOUEUR CONTRÔLEUR":{confirmed:true, text:"Le joueur qui commande une unité, un modèle ou un Jeton donné. Il prend toutes les décisions et lance tous les dés la concernant. Certaines capacités (ex. Parasite Neural) peuvent transférer ce contrôle ; le nouveau contrôleur agit alors à tous égards comme si l'unité lui appartenait."},
+  "CONTROLLING PLAYER":{confirmed:true, text:"Le joueur qui commande une unité, un modèle ou un Jeton donné. Il prend toutes les décisions et lance tous les dés la concernant. Certaines capacités (ex. Parasite Neural) peuvent transférer ce contrôle ; le nouveau contrôleur agit alors à tous égards comme si l'unité lui appartenait."},
+  "VALEUR DE SUPPLY ACTUELLE":{confirmed:true, text:"Valeur de Supply d'une unité à l'instant présent, déterminée par son nombre de modèles restants sur son Profil de Supply. Mise à jour dès qu'une perte fait passer l'unité dans une tranche inférieure. Utilisée pour le déploiement depuis les Réserves, le Contrôle des Marqueurs de Mission, la Masse Tactique et le calcul des Points de Victoire liés à la Supply."},
+  "CURRENT SUPPLY VALUE":{confirmed:true, text:"Valeur de Supply d'une unité à l'instant présent, déterminée par son nombre de modèles restants sur son Profil de Supply. Mise à jour dès qu'une perte fait passer l'unité dans une tranche inférieure. Utilisée pour le déploiement depuis les Réserves, le Contrôle des Marqueurs de Mission, la Masse Tactique et le calcul des Points de Victoire liés à la Supply."},
+  "MALUS":{confirmed:true, text:"L'unité subit une pénalité de X à la caractéristique indiquée jusqu'à la fin du Round. Pour une caractéristique de type Seuil, on augmente la valeur de X (plus difficile à réussir) ; pour une caractéristique de type Valeur, on la diminue de X (minimum 0)."},
+  "DEBUFF":{confirmed:true, text:"L'unité subit une pénalité de X à la caractéristique indiquée jusqu'à la fin du Round. Pour une caractéristique de type Seuil, on augmente la valeur de X (plus difficile à réussir) ; pour une caractéristique de type Valeur, on la diminue de X (minimum 0)."},
+  "ESQUIVE (STATUT)":{confirmed:true, text:"Quand cette unité est ciblée par une attaque, réduit de X (minimum 0) le nombre de dés déplacés de la Réserve d'Armure par un effet de Surge ou de COUP CRITIQUE. S'applique pendant l'étape de résolution du Surge."},
+  "DODGE":{confirmed:true, text:"Quand cette unité est ciblée par une attaque, réduit de X (minimum 0) le nombre de dés déplacés de la Réserve d'Armure par un effet de Surge ou de COUP CRITIQUE. S'applique pendant l'étape de résolution du Surge."},
+  "TAILLE EFFECTIVE":{confirmed:true, text:"Taille d'un modèle plus la Taille du terrain sur lequel il se trouve. Au Niveau du Sol, la Taille Effective est égale à la seule Taille du modèle. Sur Terrain Moyen ou Haut Terrain, on ajoute la Taille du terrain (et les terrains empilés s'additionnent de la même façon). La Taille Effective détermine quels terrains bloquent la Ligne de Vue via Couverture Totale ou Directe. Un modèle Volant est toujours traité comme ayant une Taille Effective supérieure à tout terrain, pour la Couverture."},
+  "EFFECTIVE SIZE":{confirmed:true, text:"Taille d'un modèle plus la Taille du terrain sur lequel il se trouve. Au Niveau du Sol, la Taille Effective est égale à la seule Taille du modèle. Sur Terrain Moyen ou Haut Terrain, on ajoute la Taille du terrain (et les terrains empilés s'additionnent de la même façon). La Taille Effective détermine quels terrains bloquent la Ligne de Vue via Couverture Totale ou Directe. Un modèle Volant est toujours traité comme ayant une Taille Effective supérieure à tout terrain, pour la Couverture."},
+  "NIVEAU D'ÉLÉVATION":{confirmed:true, text:"Un modèle se trouve à l'un des trois niveaux : Niveau du Sol (sur le tapis), Terrain Moyen (terrain horizontal de Taille 1 ou 2) ou Haut Terrain (terrain horizontal de Taille 3 ou plus). Si le socle chevauche plusieurs niveaux, on retient le plus élevé."},
+  "ELEVATION LEVEL":{confirmed:true, text:"Un modèle se trouve à l'un des trois niveaux : Niveau du Sol (sur le tapis), Terrain Moyen (terrain horizontal de Taille 1 ou 2) ou Haut Terrain (terrain horizontal de Taille 3 ou plus). Si le socle chevauche plusieurs niveaux, on retient le plus élevé."},
+  "ENNEMI":{confirmed:true, text:"Toutes les unités, Jetons et cartes appartenant à l'adversaire (à tous les adversaires en partie par équipe). Une unité ne peut cibler une unité Amie avec une attaque sauf mention contraire. Ennemi est l'opposé d'Ami et sert à déterminer les cibles valides, l'Engagement et les contestations de Marqueurs de Mission."},
+  "ENEMY":{confirmed:true, text:"Toutes les unités, Jetons et cartes appartenant à l'adversaire (à tous les adversaires en partie par équipe). Une unité ne peut cibler une unité Amie avec une attaque sauf mention contraire. Ennemi est l'opposé d'Ami et sert à déterminer les cibles valides, l'Engagement et les contestations de Marqueurs de Mission."},
+  "BORD D'ENTRÉE":{confirmed:true, text:"Bord de table assigné à un joueur par la Carte de Déploiement. Les unités entrent sur le champ de bataille depuis ce bord lorsqu'elles sont déployées depuis les Réserves."},
+  "ENTRY EDGE":{confirmed:true, text:"Bord de table assigné à un joueur par la Carte de Déploiement. Les unités entrent sur le champ de bataille depuis ce bord lorsqu'elles sont déployées depuis les Réserves."},
+  "TAGS DE FACTION":{confirmed:true, text:"Mots-clés imprimés sur les Cartes d'Unité, Cartes Tactiques et Cartes de Faction identifiant l'allégeance : Tags de Race (Terran, Zerg, Protoss) et Tags de Sous-Faction (ex. Essaim de Kerrigan, Raiders de Raynor). Pendant la construction d'armée, seuls les unités et Cartes Tactiques dont tous les Tags de Faction apparaissent sur la Carte de Faction choisie peuvent être incluses."},
+  "FACTION TAGS":{confirmed:true, text:"Mots-clés imprimés sur les Cartes d'Unité, Cartes Tactiques et Cartes de Faction identifiant l'allégeance : Tags de Race (Terran, Zerg, Protoss) et Tags de Sous-Faction (ex. Essaim de Kerrigan, Raiders de Raynor). Pendant la construction d'armée, seuls les unités et Cartes Tactiques dont tous les Tags de Faction apparaissent sur la Carte de Faction choisie peuvent être incluses."},
+  "RANG DE COMBAT":{confirmed:true, text:"Un modèle est au Rang de Combat s'il se trouve dans l'Aire d'Engagement (1\") d'un modèle Ennemi. Les modèles au Rang de Combat peuvent frapper avec leurs armes de Phase de Combat."},
+  "FIGHTING RANK":{confirmed:true, text:"Un modèle est au Rang de Combat s'il se trouve dans l'Aire d'Engagement (1\") d'un modèle Ennemi. Les modèles au Rang de Combat peuvent frapper avec leurs armes de Phase de Combat."},
+  "MARQUEUR DE PREMIER JOUEUR":{confirmed:true, text:"Jeton indiquant quel joueur a l'initiative. Le vainqueur du Roll-Off l'attribue pour le Round 1. Son détenteur choisit quel joueur active en premier à chaque Phase. Il change de main quand le premier joueur Passe en Phase 1 ou 2, et à la fin de la Phase 4 il revient au joueur ayant le moins de Points de Victoire (égalité : Roll-Off)."},
+  "FIRST PLAYER MARKER":{confirmed:true, text:"Jeton indiquant quel joueur a l'initiative. Le vainqueur du Roll-Off l'attribue pour le Round 1. Son détenteur choisit quel joueur active en premier à chaque Phase. Il change de main quand le premier joueur Passe en Phase 1 ou 2, et à la fin de la Phase 4 il revient au joueur ayant le moins de Points de Victoire (égalité : Roll-Off)."},
+  "VOLANT":{confirmed:true, text:"Une unité Volante échange le contact au sol (pas de contrôle de Marqueur de Mission) contre mobilité et immunité à la mêlée. Elle ignore tout le terrain pour son mouvement, n'est jamais Engagée (le Sol ne peut jamais l'Engager, et elle ne peut Engager d'autre unité Volante), et doit terminer son mouvement à au moins 1\" de toute unité Volante Ennemie. Elle ignore la Couverture Totale (mais pas la Couverture Directe ni la Zone Morte d'Élévation) et est traitée comme ayant une Taille Effective supérieure à tout terrain. Elle ne bénéficie pas de la Couverture du Haut Terrain, ne peut ni Contrôler ni Contester de Marqueur de Mission, ne peut ni Charger ni être Chargée, ne peut pas participer à la Phase de Combat, et ignore l'élévation et les Points d'Accès."},
+  "FLYING":{confirmed:true, text:"Une unité Volante échange le contact au sol (pas de contrôle de Marqueur de Mission) contre mobilité et immunité à la mêlée. Elle ignore tout le terrain pour son mouvement, n'est jamais Engagée (le Sol ne peut jamais l'Engager, et elle ne peut Engager d'autre unité Volante), et doit terminer son mouvement à au moins 1\" de toute unité Volante Ennemie. Elle ignore la Couverture Totale (mais pas la Couverture Directe ni la Zone Morte d'Élévation) et est traitée comme ayant une Taille Effective supérieure à tout terrain. Elle ne bénéficie pas de la Couverture du Haut Terrain, ne peut ni Contrôler ni Contester de Marqueur de Mission, ne peut ni Charger ni être Chargée, ne peut pas participer à la Phase de Combat, et ignore l'élévation et les Points d'Accès."},
+  "AMI":{confirmed:true, text:"Toutes les unités, Jetons et cartes appartenant au joueur contrôleur (et à ses coéquipiers en partie par équipe) sont Amies entre elles ; une unité est toujours Amie envers elle-même. Ami est l'opposé d'Ennemi."},
+  "FRIENDLY":{confirmed:true, text:"Toutes les unités, Jetons et cartes appartenant au joueur contrôleur (et à ses coéquipiers en partie par équipe) sont Amies entre elles ; une unité est toujours Amie envers elle-même. Ami est l'opposé d'Ennemi."},
+  "HERBE":{confirmed:true, text:"Terrain de Taille 2 aux règles particulières : il ne bloque pas le mouvement mais bloque la Ligne de Vue comme tout terrain. Il est détruit dès qu'un Mouvement, Déploiement, Course, Charge, Désengagement ou Réorganisation des Rangs y fait passer ou terminer le Modèle Meneur d'une unité, et ne revient jamais. Une unité Volante ne le détruit pas en le survolant, mais le détruit normalement si elle y termine son mouvement."},
+  "GRASS":{confirmed:true, text:"Terrain de Taille 2 aux règles particulières : il ne bloque pas le mouvement mais bloque la Ligne de Vue comme tout terrain. Il est détruit dès qu'un Mouvement, Déploiement, Course, Charge, Désengagement ou Réorganisation des Rangs y fait passer ou terminer le Modèle Meneur d'une unité, et ne revient jamais. Une unité Volante ne le détruit pas en le survolant, mais le détruit normalement si elle y termine son mouvement."},
+  "NIVEAU DU SOL":{confirmed:true, text:"Un modèle est au Niveau du Sol quand il se tient directement sur le tapis. Il ne peut Engager le Haut Terrain (et vice versa), et ne peut Engager le Terrain Moyen que si les deux modèles sont adjacents au même Point d'Accès reliant leurs niveaux. Sa Taille Effective est alors égale à sa seule Taille."},
+  "GROUND LEVEL":{confirmed:true, text:"Un modèle est au Niveau du Sol quand il se tient directement sur le tapis. Il ne peut Engager le Haut Terrain (et vice versa), et ne peut Engager le Terrain Moyen que si les deux modèles sont adjacents au même Point d'Accès reliant leurs niveaux. Sa Taille Effective est alors égale à sa seule Taille."},
+  "HAUT TERRAIN":{confirmed:true, text:"Un modèle est en Haut Terrain quand il se tient sur un terrain horizontal de Taille 3 ou plus. Il ne peut Engager le Niveau du Sol (et vice versa), et ne peut Engager le Terrain Moyen que si les deux modèles sont adjacents au même Point d'Accès. Sa Taille Effective est égale à sa Taille plus celle du terrain."},
+  "HIGH GROUND":{confirmed:true, text:"Un modèle est en Haut Terrain quand il se tient sur un terrain horizontal de Taille 3 ou plus. Il ne peut Engager le Niveau du Sol (et vice versa), et ne peut Engager le Terrain Moyen que si les deux modèles sont adjacents au même Point d'Accès. Sa Taille Effective est égale à sa Taille plus celle du terrain."},
+  "TOUCHES (X)Y":{confirmed:true, text:"L'unité affectée subit X touches automatiques : placez X dés directement dans la Réserve d'Armure et passez immédiatement aux Jets d'Armure, en traitant la caractéristique Dégâts comme Y. Ces touches ne génèrent pas de Surge."},
+  "HITS (X)Y":{confirmed:true, text:"L'unité affectée subit X touches automatiques : placez X dés directement dans la Réserve d'Armure et passez immédiatement aux Jets d'Armure, en traitant la caractéristique Dégâts comme Y. Ces touches ne génèrent pas de Surge."},
+  "TERRAIN INFRANCHISSABLE":{confirmed:true, text:"Un terrain sans Point d'Accès reliant un niveau d'élévation adjacent. Aucun modèle ne peut s'y déplacer à travers, dessus, ou en traversant, ni terminer son mouvement en le chevauchant. Les modèles peuvent traverser un terrain de Taille 0 ou 1."},
+  "IMPASSABLE TERRAIN":{confirmed:true, text:"Un terrain sans Point d'Accès reliant un niveau d'élévation adjacent. Aucun modèle ne peut s'y déplacer à travers, dessus, ou en traversant, ni terminer son mouvement en le chevauchant. Les modèles peuvent traverser un terrain de Taille 0 ou 1."},
+  "LIGNE DE VUE":{confirmed:true, text:"Détermine ce qu'un modèle peut voir et donc cibler. Toujours résolue en vue de dessus (2D), en traçant une ligne droite imaginaire entre les socles des deux modèles, sans tenir compte de la hauteur. Si le tracé ne traverse aucun Terrain Bloquant, la cible est Visible. S'il en traverse un, on applique les règles de Couverture : Couverture Totale (le terrain a une Taille Effective supérieure ou égale à celle de l'attaquant ET de la cible : Ligne de Vue bloquée), Couverture Directe (l'attaquant ou la cible est à moins de 1\" d'un terrain dont la Taille Effective est supérieure ou égale à la sienne : bloquée, sauf si les deux sont à moins de 1\" du même terrain et à moins de 3\" l'un de l'autre), et Zone Morte d'Élévation (un modèle en Haut Terrain ne voit pas un modèle au Niveau du Sol à moins de 1\" du même terrain, et vice versa). Chaque terrain est évalué indépendamment. Les unités Volantes ignorent la Couverture Totale et la Zone Morte d'Élévation. La Ligne de Vue est mutuelle."},
+  "LINE OF SIGHT":{confirmed:true, text:"Détermine ce qu'un modèle peut voir et donc cibler. Toujours résolue en vue de dessus (2D), en traçant une ligne droite imaginaire entre les socles des deux modèles, sans tenir compte de la hauteur. Si le tracé ne traverse aucun Terrain Bloquant, la cible est Visible. S'il en traverse un, on applique les règles de Couverture : Couverture Totale (le terrain a une Taille Effective supérieure ou égale à celle de l'attaquant ET de la cible : Ligne de Vue bloquée), Couverture Directe (l'attaquant ou la cible est à moins de 1\" d'un terrain dont la Taille Effective est supérieure ou égale à la sienne : bloquée, sauf si les deux sont à moins de 1\" du même terrain et à moins de 3\" l'un de l'autre), et Zone Morte d'Élévation (un modèle en Haut Terrain ne voit pas un modèle au Niveau du Sol à moins de 1\" du même terrain, et vice versa). Chaque terrain est évalué indépendamment. Les unités Volantes ignorent la Couverture Totale et la Zone Morte d'Élévation. La Ligne de Vue est mutuelle."},
+  "TERRAIN MOYEN":{confirmed:true, text:"Un modèle est en Terrain Moyen quand il se tient sur un terrain horizontal de Taille 1 ou 2. Il ne peut Engager le Haut Terrain ou le Niveau du Sol que si les deux modèles sont adjacents au même Point d'Accès. Sa Taille Effective est égale à sa Taille plus celle du terrain."},
+  "MID GROUND":{confirmed:true, text:"Un modèle est en Terrain Moyen quand il se tient sur un terrain horizontal de Taille 1 ou 2. Il ne peut Engager le Haut Terrain ou le Niveau du Sol que si les deux modèles sont adjacents au même Point d'Accès. Sa Taille Effective est égale à sa Taille plus celle du terrain."},
+  "MARQUEURS DE MISSION":{confirmed:true, text:"Marqueurs numérotés placés sur le champ de bataille selon la Carte de Déploiement (32 mm, faces Activé/Désactivé). Mécanisme principal de score : à la fin de chaque Round, le Contrôle de chaque Marqueur se détermine en comparant la Valeur de Supply Actuelle totale des unités éligibles à le contester (sur le champ de bataille, En Cohérence, à moins de 3\" avec Ligne de Vue, au même niveau d'élévation). Les unités Volantes et BURROWED ne peuvent ni Contrôler ni Contester. Le Contrôle est Collant : il reste au joueur jusqu'à ce que l'adversaire le reprenne avec une Valeur de Supply contestante supérieure ; une égalité ne transfère jamais le Contrôle."},
+  "MISSION MARKERS":{confirmed:true, text:"Marqueurs numérotés placés sur le champ de bataille selon la Carte de Déploiement (32 mm, faces Activé/Désactivé). Mécanisme principal de score : à la fin de chaque Round, le Contrôle de chaque Marqueur se détermine en comparant la Valeur de Supply Actuelle totale des unités éligibles à le contester (sur le champ de bataille, En Cohérence, à moins de 3\" avec Ligne de Vue, au même niveau d'élévation). Les unités Volantes et BURROWED ne peuvent ni Contrôler ni Contester. Le Contrôle est Collant : il reste au joueur jusqu'à ce que l'adversaire le reprenne avec une Valeur de Supply contestante supérieure ; une égalité ne transfère jamais le Contrôle."},
+  "MODIFICATEUR":{confirmed:true, text:"Ajuste le Seuil de Réussite d'un jet, avant de lancer les dés. Un Modificateur de +X facilite le jet (réduit le Seuil de X) ; un Modificateur de -X le durcit (augmente le Seuil de X). Les Modificateurs de sources différentes se cumulent sauf mention contraire. Un Seuil peut être modifié en dessous de 2+ ou au-dessus de 6+. Un 6 naturel réussit toujours, un 1 naturel échoue toujours, quels que soient les Modificateurs."},
+  "MODIFIER":{confirmed:true, text:"Ajuste le Seuil de Réussite d'un jet, avant de lancer les dés. Un Modificateur de +X facilite le jet (réduit le Seuil de X) ; un Modificateur de -X le durcit (augmente le Seuil de X). Les Modificateurs de sources différentes se cumulent sauf mention contraire. Un Seuil peut être modifié en dessous de 2+ ou au-dessus de 6+. Un 6 naturel réussit toujours, un 1 naturel échoue toujours, quels que soient les Modificateurs."},
+  "MORPH":{confirmed:true, text:"Le joueur contrôleur doit disposer d'assez de Supply Disponible. Placez un modèle (Nom) en Contact Socle-à-Socle avec un modèle de l'unité active, puis retirez X modèles de cette unité du champ de bataille. Le modèle (Nom) forme une nouvelle unité, ne peut pas être placé dans l'Aire d'Engagement d'une unité Ennemie, et ne peut pas être Activé pour le reste du Round."},
+  "DÉGÂTS NON LÉTAUX":{confirmed:true, text:"L'unité subit X points de Dégâts ajoutés à son Marqueur de Dégâts, sans jamais retirer de modèle même si les Dégâts Totaux dépassent les PV d'un modèle. Si l'unité subit ensuite des Dégâts supplémentaires, les Dégâts Totaux combinés déclenchent le retrait de pertes normalement."},
+  "NON-LETHAL DAMAGE":{confirmed:true, text:"L'unité subit X points de Dégâts ajoutés à son Marqueur de Dégâts, sans jamais retirer de modèle même si les Dégâts Totaux dépassent les PV d'un modèle. Si l'unité subit ensuite des Dégâts supplémentaires, les Dégâts Totaux combinés déclenchent le retrait de pertes normalement."},
+  "SUR CREEP":{confirmed:true, text:"Une unité Sol, Amie ou Ennemie, de faction Zerg est considérée SUR CREEP tant qu'elle se trouve à moins de 6\" d'un Jeton Tumeur de Creep ou d'un modèle désigné comme Source de Creep. Cela lui permet de déclencher certaines Capacités Spéciales ou Améliorations nécessitant ce statut."},
+  "ON CREEP":{confirmed:true, text:"Une unité Sol, Amie ou Ennemie, de faction Zerg est considérée SUR CREEP tant qu'elle se trouve à moins de 6\" d'un Jeton Tumeur de Creep ou d'un modèle désigné comme Source de Creep. Cela lui permet de déclencher certaines Capacités Spéciales ou Améliorations nécessitant ce statut."},
+  "PRÊT":{confirmed:true, text:"État par défaut d'une Carte Tactique ou de Faction : la carte est face visible, ses capacités sont disponibles, et elle peut être Épuisée pour payer un coût ou activer une Capacité Spéciale. Toutes les cartes commencent chaque Round Prêtes ; les cartes Épuisées redeviennent Prêtes pendant le Nettoyage & Rafraîchissement."},
+  "READY":{confirmed:true, text:"État par défaut d'une Carte Tactique ou de Faction : la carte est face visible, ses capacités sont disponibles, et elle peut être Épuisée pour payer un coût ou activer une Capacité Spéciale. Toutes les cartes commencent chaque Round Prêtes ; les cartes Épuisées redeviennent Prêtes pendant le Nettoyage & Rafraîchissement."},
+  "RÉSERVES":{confirmed:true, text:"Zone hors du champ de bataille où les unités attendent d'être déployées ; toutes les unités commencent la partie en Réserves. Tant qu'elle y est, une unité ne peut être ciblée par des attaques ou capacités, ne peut utiliser de Capacité Active, Passive ou de Réaction (sauf mention contraire), ne peut Contrôler ni Contester de Marqueur de Mission, et ne compte pas dans la Supply Actuelle totale du joueur. Elle conserve son équipement et ses choix d'Army Building. Elle quitte les Réserves via une action Déployer. Au dernier Round, toute unité encore en Réserves non déployée est considérée Détruite pour le score."},
+  "RESERVES":{confirmed:true, text:"Zone hors du champ de bataille où les unités attendent d'être déployées ; toutes les unités commencent la partie en Réserves. Tant qu'elle y est, une unité ne peut être ciblée par des attaques ou capacités, ne peut utiliser de Capacité Active, Passive ou de Réaction (sauf mention contraire), ne peut Contrôler ni Contester de Marqueur de Mission, et ne compte pas dans la Supply Actuelle totale du joueur. Elle conserve son équipement et ses choix d'Army Building. Elle quitte les Réserves via une action Déployer. Au dernier Round, toute unité encore en Réserves non déployée est considérée Détruite pour le score."},
+  "BOUCLÉ":{confirmed:true, text:"Statut qu'une unité possède tant qu'elle a une valeur de Bouclier sur sa Carte d'Unité et que son premier modèle n'a pas encore été retiré. Elle le perd quand les Dégâts subis dépassent sa valeur de Bouclier ou que son premier modèle est retiré. Perdre ce statut ne retire aucun Point de Vie restant ; cela met seulement fin aux effets qui l'exigent. Il ne peut pas être restauré par HEAL."},
+  "SHIELDED":{confirmed:true, text:"Statut qu'une unité possède tant qu'elle a une valeur de Bouclier sur sa Carte d'Unité et que son premier modèle n'a pas encore été retiré. Elle le perd quand les Dégâts subis dépassent sa valeur de Bouclier ou que son premier modèle est retiré. Perdre ce statut ne retire aucun Point de Vie restant ; cela met seulement fin aux effets qui l'exigent. Il ne peut pas être restauré par HEAL."},
+  "MODE SIÈGE":{confirmed:true, text:"Tant qu'une unité a ce statut : elle ne peut effectuer ni Mouvement, ni Désengagement, ni Course, ni Charge, ni Réorganisation des Rangs ; les profils d'arme marqués Mode Siège ne sont utilisables que sous ce statut, et aucune autre arme ne peut être utilisée tant qu'il est actif. L'unité le perd si elle retourne en Réserves."},
+  "SIEGE MODE":{confirmed:true, text:"Tant qu'une unité a ce statut : elle ne peut effectuer ni Mouvement, ni Désengagement, ni Course, ni Charge, ni Réorganisation des Rangs ; les profils d'arme marqués Mode Siège ne sont utilisables que sous ce statut, et aucune autre arme ne peut être utilisée tant qu'il est actif. L'unité le perd si elle retourne en Réserves."},
+  "CAPACITÉ SPÉCIALE":{confirmed:true, text:"Toute capacité nommée imprimée sur une Carte d'Unité, Tactique ou de Faction, de l'un des trois types : Active (nécessite que l'unité soit Activée, déclenchée juste avant ou après une action, utilisable une fois par Round et par unité sauf mot-clé REPEATABLE), Passive (toujours active tant que l'unité est sur le champ de bataille), ou de Réaction (se déclenche en réponse à un élément précis ; une seule Réaction résolue par joueur et par Activation, une fois par Round et par modèle pour une capacité nommée donnée). Les trois types sont inactifs pendant que l'unité est en Réserves, sauf mention contraire. Une unité ne peut être affectée par plusieurs instances de la même Capacité Spéciale nommée simultanément."},
+  "SPECIAL ABILITY":{confirmed:true, text:"Toute capacité nommée imprimée sur une Carte d'Unité, Tactique ou de Faction, de l'un des trois types : Active (nécessite que l'unité soit Activée, déclenchée juste avant ou après une action, utilisable une fois par Round et par unité sauf mot-clé REPEATABLE), Passive (toujours active tant que l'unité est sur le champ de bataille), ou de Réaction (se déclenche en réponse à un élément précis ; une seule Réaction résolue par joueur et par Activation, une fois par Round et par modèle pour une capacité nommée donnée). Les trois types sont inactifs pendant que l'unité est en Réserves, sauf mention contraire. Une unité ne peut être affectée par plusieurs instances de la même Capacité Spéciale nommée simultanément."},
+  "DÉBORDEMENT":{confirmed:true, text:"Touches supplémentaires générées par une arme à Gabarit (Gabarit d'Explosion ou de Lance-Flammes) qui touchent des modèles n'appartenant pas à l'unité ciblée principale. Elles sont résolues dans un Batch séparé, sans Modificateur de RoA et sans générer de Surge. Le Débordement peut affecter des unités Amies comme Ennemies."},
+  "SPILLOVER":{confirmed:true, text:"Touches supplémentaires générées par une arme à Gabarit (Gabarit d'Explosion ou de Lance-Flammes) qui touchent des modèles n'appartenant pas à l'unité ciblée principale. Elles sont résolues dans un Batch séparé, sans Modificateur de RoA et sans générer de Surge. Le Débordement peut affecter des unités Amies comme Ennemies."},
+  "STATIONARY":{confirmed:true, text:"Toutes les unités gagnent ce statut au Début du Round. Une unité le perd immédiatement dès que l'un de ses modèles Bouge, est déplacé, ou fait l'objet d'un PLACE, pour quelque raison que ce soit."},
+  "IMMOBILE":{confirmed:true, text:"Toutes les unités gagnent ce statut au Début du Round. Une unité le perd immédiatement dès que l'un de ses modèles Bouge, est déplacé, ou fait l'objet d'un PLACE, pour quelque raison que ce soit."},
+  "STATUT":{confirmed:true, text:"Catégorie de mot-clé représentant un état, une condition ou une modification temporaire ou persistante affectant une unité (ex. BURROWED, SIEGE MODE). Sauf mention contraire, les Statuts ne sont pas retirés pendant la Phase de Score et Nettoyage : ils restent jusqu'à ce qu'une condition précise les retire. Les changements de mode se suivent avec des Marqueurs plastiques (Mode Siège, Enterré) ; les autres effets se suivent avec des Marqueurs Bonus (bleus) ou Malus (rouges). Tous ont la propriété STAY IN PLAY."},
+  "STATUS":{confirmed:true, text:"Catégorie de mot-clé représentant un état, une condition ou une modification temporaire ou persistante affectant une unité (ex. BURROWED, SIEGE MODE). Sauf mention contraire, les Statuts ne sont pas retirés pendant la Phase de Score et Nettoyage : ils restent jusqu'à ce qu'une condition précise les retire. Les changements de mode se suivent avec des Marqueurs plastiques (Mode Siège, Enterré) ; les autres effets se suivent avec des Marqueurs Bonus (bleus) ou Malus (rouges). Tous ont la propriété STAY IN PLAY."},
+  "VALEUR DE SUPPLY":{confirmed:true, text:"Valeur affichée sur le Profil de Supply d'une Carte d'Unité correspondant à son nombre de modèles actuel. La Valeur de départ est fixée par l'Option de Composition choisie en Army Building et détermine le nombre d'Emplacements d'Armée occupés. C'est une caractéristique dynamique : elle diminue quand les pertes font passer l'unité dans une tranche inférieure du Profil de Supply. Elle sert au Déploiement, au Contrôle des Marqueurs de Mission, à la Masse Tactique et au score."},
+  "SUPPLY VALUE":{confirmed:true, text:"Valeur affichée sur le Profil de Supply d'une Carte d'Unité correspondant à son nombre de modèles actuel. La Valeur de départ est fixée par l'Option de Composition choisie en Army Building et détermine le nombre d'Emplacements d'Armée occupés. C'est une caractéristique dynamique : elle diminue quand les pertes font passer l'unité dans une tranche inférieure du Profil de Supply. Elle sert au Déploiement, au Contrôle des Marqueurs de Mission, à la Masse Tactique et au score."},
+  "RANG DE SOUTIEN":{confirmed:true, text:"Un modèle est au Rang de Soutien s'il est en Contact Socle-à-Socle avec un modèle Ami au Rang de Combat, sans être lui-même dans l'Aire d'Engagement d'un modèle Ennemi. Il peut frapper avec ses armes de Phase de Combat comme s'il était au contact."},
+  "SUPPORTING RANK":{confirmed:true, text:"Un modèle est au Rang de Soutien s'il est en Contact Socle-à-Socle avec un modèle Ami au Rang de Combat, sans être lui-même dans l'Aire d'Engagement d'un modèle Ennemi. Il peut frapper avec ses armes de Phase de Combat comme s'il était au contact."},
+  "MASSE TACTIQUE":{confirmed:true, text:"Une unité a la Masse Tactique quand sa Valeur de Supply Actuelle dépasse la Valeur de Supply Actuelle combinée de toutes les unités Ennemies avec lesquelles elle est Engagée. Elle ignore alors la pénalité de Désengagement : elle peut effectuer une Attaque à Distance et Charger normalement en Phase d'Assaut après avoir Désengagé."},
+  "TACTICAL MASS":{confirmed:true, text:"Une unité a la Masse Tactique quand sa Valeur de Supply Actuelle dépasse la Valeur de Supply Actuelle combinée de toutes les unités Ennemies avec lesquelles elle est Engagée. Elle ignore alors la pénalité de Désengagement : elle peut effectuer une Attaque à Distance et Charger normalement en Phase d'Assaut après avoir Désengagé."},
+  "NON ENGAGÉ":{confirmed:true, text:"Une unité Sol est Non Engagée quand aucun de ses modèles n'est à moins de 1\" d'un modèle Ennemi Sol, ou quand une restriction de terrain empêche l'Engagement malgré la proximité. Les unités Volantes sont toujours Non Engagées. Seule une unité Non Engagée peut effectuer un Mouvement standard ; elle peut aussi Courir, faire une Attaque à Distance ou Charger sans restriction."},
+  "UNENGAGED":{confirmed:true, text:"Une unité Sol est Non Engagée quand aucun de ses modèles n'est à moins de 1\" d'un modèle Ennemi Sol, ou quand une restriction de terrain empêche l'Engagement malgré la proximité. Les unités Volantes sont toujours Non Engagées. Seule une unité Non Engagée peut effectuer un Mouvement standard ; elle peut aussi Courir, faire une Attaque à Distance ou Charger sans restriction."},
+  "VISIBLE":{confirmed:true, text:"Un modèle est Visible à un autre si un tracé de Ligne de Vue valide peut être établi entre eux. Si le tracé ne traverse aucun Terrain Bloquant, la cible est Visible sans autre vérification. S'il en traverse un, on applique les règles de Couverture : la cible reste Visible sauf si la Couverture Totale ou Directe bloque la Ligne de Vue. Un modèle HIDDEN n'est Visible à aucun modèle à plus de 4\", quelle que soit la Ligne de Vue."},
+  "ENTIÈREMENT À MOINS DE":{confirmed:true, text:"Un modèle est Entièrement à moins d'une distance seulement si tout son socle se trouve dans cette limite, sans dépasser. Une unité l'est seulement si tous ses modèles la respectent. C'est une exigence plus stricte que « à moins de » ; elle s'applique à la Cohérence, à certaines zones d'effet et à l'éligibilité des Marqueurs de Mission."},
+  "WHOLLY WITHIN":{confirmed:true, text:"Un modèle est Entièrement à moins d'une distance seulement si tout son socle se trouve dans cette limite, sans dépasser. Une unité l'est seulement si tous ses modèles la respectent. C'est une exigence plus stricte que « à moins de » ; elle s'applique à la Cohérence, à certaines zones d'effet et à l'éligibilité des Marqueurs de Mission."},
+  "À MOINS DE":{confirmed:true, text:"Un modèle est à moins d'une distance si une partie de son socle touche ou entre dans cette limite. Une unité l'est si au moins un de ses modèles la respecte. C'est une exigence moins stricte qu'« Entièrement à moins de » : un simple chevauchement partiel suffit."},
+  "WITHIN":{confirmed:true, text:"Un modèle est à moins d'une distance si une partie de son socle touche ou entre dans cette limite. Une unité l'est si au moins un de ses modèles la respecte. C'est une exigence moins stricte qu'« Entièrement à moins de » : un simple chevauchement partiel suffit."},
+  "ZONE D'INFLUENCE":{confirmed:true, text:"Zone restreinte s'étendant sur 6\" depuis le Bord d'Entrée d'un joueur, définie par la Carte de Déploiement (marquée aux coins si le Bord d'Entrée ne court pas sur toute la longueur de la table). Une unité arrivant des Réserves ne peut pas terminer son déploiement dans la Zone d'Influence adverse, quel que soit le mode d'arrivée (déploiement standard, transport ou SUMMON). Elle n'affecte pas les unités déjà sur le champ de bataille et ne restreint ni mouvement, ni Ligne de Vue, ni aucune autre règle une fois l'arrivée terminée."},
+  "ZONE OF INFLUENCE":{confirmed:true, text:"Zone restreinte s'étendant sur 6\" depuis le Bord d'Entrée d'un joueur, définie par la Carte de Déploiement (marquée aux coins si le Bord d'Entrée ne court pas sur toute la longueur de la table). Une unité arrivant des Réserves ne peut pas terminer son déploiement dans la Zone d'Influence adverse, quel que soit le mode d'arrivée (déploiement standard, transport ou SUMMON). Elle n'affecte pas les unités déjà sur le champ de bataille et ne restreint ni mouvement, ni Ligne de Vue, ni aucune autre règle une fois l'arrivée terminée."},
+  "TIR EN RAFALE":{confirmed:true, text:"Lors d'une Attaque à Distance contre une cible à moins de Y\" du modèle attaquant, augmente le RoA de cette arme de X pour cette attaque."},
+  "BURST FIRE":{confirmed:true, text:"Lors d'une Attaque à Distance contre une cible à moins de Y\" du modèle attaquant, augmente le RoA de cette arme de X pour cette attaque."}
+};
+
+function linkifyKeywords(text){
+  if(!text) return text;
+  const names = Object.keys(KEYWORDS).sort((a,b)=>b.length-a.length);
+  let out = text;
+  names.forEach(name=>{
+    const re = new RegExp('\\b('+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')\\b(\\s*\\(\\d[^)]*\\))?', 'gi');
+    out = out.replace(re, (m)=>`<span class="kw" onclick="event.stopPropagation();showKeyword('${name}')">${m}</span>`);
+  });
+  return out;
+}
+
+function showKeyword(name){
+  const k = KEYWORDS[name];
+  if(!k) return;
+  const box = document.getElementById('kwModal');
+  document.getElementById('kwModalTitle').textContent = name;
+  document.getElementById('kwModalBadge').style.display = k.confirmed ? 'none':'inline-block';
+  document.getElementById('kwModalText').textContent = k.text;
+  box.style.display = 'flex';
+}
+function closeKeyword(){
+  document.getElementById('kwModal').style.display = 'none';
+}
+
+const UPGRADE_DESCRIPTIONS = {
+
+  // Terran
+  "Combat Shield": "ACTIVE (1 PC) — Cette unité peut toujours effectuer un Jet d'Esquive contre toute Attaque de Corps-à-corps la ciblant, et contre les dégâts d'une Capacité Spéciale ennemie.",
+  "Slugthrower": "PASSIF — Quand cette unité effectue une Attaque à Distance avec un C-14 Rifle sur une cible à moins de 8\", cette arme gagne ANTI-ESQUIVE (1).",
+  "Grenades (Frag)": "PASSIF — Quand cette unité effectue une Attaque à Distance avec un C-14 Rifle sur une cible à moins de 8\", les S Dice de cette arme sont remplacés par un D6.",
+  "AGG-12": "Remplace le C-14 Rifle — RNG 12, Cible Sol, RoA 2, Touche 3+, Surge Blindé D3, Dégâts 1, LONGUE PORTÉE (18\"), SPÉCIALISTE.",
+  "Bayonet": "Remplace l'arme de Frappe — RNG Engagement, Cible Sol, RoA 2, Touche 5+, Dégâts 1.",
+  "Veteran of Tarsonis": "PASSIF — Tant que cette unité est à moins de 3\" d'un Marqueur de Mission, sa caractéristique Armure est augmentée de 1.",
+  "Kinetic Foam": "PASSIF — Augmente la caractéristique Points de Vie de cette unité de 1.",
+  "Laser Targeting Systems": "PASSIF — L'arme Quad K12 de cette unité gagne LONGUE PORTÉE (16\").",
+  "Ares-Class Targeting System": "PASSIF — Les armes Autocannon et Underbelly Machine Gun de cette unité gagnent PRÉCISION (1).",
+  "Scatter Missiles": "Remplace les Hellfire Missiles — RNG 18, Cible Sol, RoA 6, Touche 5+, Surge Léger D3, Dégâts 1, TIR INDIRECT, VERROUILLÉ (6), LONGUE PORTÉE (24\"), ARME LATÉRALE.",
+  "Haywire Missiles": "Remplace les Hellfire Missiles — RNG 12, Cible Sol, RoA 3, Touche 3+, Surge Blindé D3, Dégâts 1, PERCE Blindé (3), ARME LATÉRALE.",
+  "Advanced Medic Facilities": "PASSIF — La Valeur de Supply de cette unité compte comme 0 dans le calcul du Réservoir de Supply.",
+  "A-13 Flash Grenade Launcher": "PASSIF — Augmente la portée de la capacité Optical Flare à 16\".",
+  "Stabilizer Medpacks": "PASSIF — Quand cette unité résout une capacité Life Support ou Medpack, elle compte 1 modèle supplémentaire à portée pour calculer l'effet.",
+  // Zerg
+  "Adrenal Glands": "PASSIF — Les armes Claws et Shredding Claws de cette unité gagnent PRÉCISION (2).",
+  "Burrow Ambush": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre l'effet PLACE (18) depuis le bord d'Entrée du joueur contrôlant. Aucun modèle ne peut être placé à moins de 10\" d'un modèle ennemi. L'Activation de cette unité se termine.",
+  "Shredding Claws": "Remplace les Claws — RNG Engagement, Cible Sol, RoA 2, Touche 4+, Surge Léger/Blindé D3, Dégâts 1.",
+  "Tunneling Claws": "PASSIF — Tant que cette unité a le statut Enterré, elle peut effectuer les actions Déplacement et Course sans perdre ce statut. Elle peut aussi traverser les socles d'autres unités.",
+  "Glial Reconstitution": "ACTIF (1 PC) — Cette unité gagne BONUS Vitesse (1), ou BONUS Vitesse (2) si elle est SUR RAMPANT.",
+  "Hydriodic Bile": "PASSIF — L'arme Acid Saliva de cette unité gagne Type de Surge : Léger, et S Dice : D3+1.",
+  "Grooved Spines": "PASSIF — L'arme à distance Needle Spines de cette unité gagne LONGUE PORTÉE (16\").",
+  "Ancillary Carapace": "PASSIF — Cette unité gagne RÉSISTANT (1) sur le premier Jet d'Armure de chaque Activation.",
+  "Lurking": "PASSIF — Si cette unité a le statut Stationnaire, elle peut effectuer un Jet d'Esquive contre la première Attaque à Distance la ciblant ce Round. Si elle est SUR RAMPANT, elle gagne +1 au Modificateur de ce Jet d'Esquive.",
+  "Creep Speed": "PASSIF — Tant que cette unité est SUR RAMPANT, sa caractéristique Vitesse est augmentée de 2.",
+  "Domineering Presence": "ACTIF (1 BM) — Sélectionne une autre unité amie à moins de 6\" (Ligne de Vue non requise). La caractéristique Supply de cette unité est augmentée de 1 pour le Contrôle/la Contestation des Marqueurs de Mission et les objectifs.",
+  // Protoss
+  "Resonating Glaives": "ACTIF (1 PE) — L'arme Glaive Cannon de cette unité gagne BONUS RoA (1).",
+  "Guidance": "PASSIF — L'arme à distance Glaive Cannon de cette unité gagne ANTI-ESQUIVE (2).",
+  "Glaive Strike": "Remplace l'arme Strike — RNG Engagement, Cible Sol, RoA 1, Touche 4+, Surge Léger D3, Dégâts 1, PERCE Léger (2).",
+  "Leg Enhancements": "ACTIF (1 PE) — Cette unité effectue une action de Déplacement de 2\". Ne compte pas dans sa limite d'actions.",
+  "My Life for Aiur": "PASSIF — Quand cette unité résout un IMPACT, chaque modèle éligible génère 1 dé d'IMPACT supplémentaire.",
+  "Zealous Round": "RÉACTION (0 PE) — Quand cette unité n'est pas Activée et subit des Dégâts, le joueur contrôlant peut la compter comme Activée cette Phase (retourner son Marqueur d'Activation) pour réduire les Dégâts Totaux de 2.",
+  "We Stand As One": "PASSIF — Quand cette unité effectue une Attaque de Corps-à-corps, si la cible est Engagée avec au moins 1 autre unité amie, son arme de Corps-à-corps gagne PRÉCISION (2).",
+  "Blink": "ACTIF (1 PE) — Résout l'effet PLACE (6). Les modèles placés par cet effet ne peuvent pas être positionnés dans le Rayon d'Engagement d'un modèle ennemi.",
+  "Fury of the Nerazim": "PASSIF — Quand cette unité attaque une unité ennemie déjà Activée cette Phase, ses Particle Disruptors gagnent INSTANT pour cette attaque.",
+  "Path of Shadows": "ACTIF (1 PE) — Cette unité gagne le statut CACHÉ jusqu'à ce qu'elle effectue une autre action.",
+  "Guardian Shield": "ACTIF (1 PE) — Toutes les Attaques à Distance ciblant une unité amie à moins de 4\" (Ligne de Vue non requise) sont résolues avec 1 dé de moins dans le Bassin d'Attaque.",
+  "Force Field": "ACTIF (1 PE) — Place un marqueur Force Field à moins de 8\" dans un espace inoccupé. Les unités de Taille 2 ou moins ne peuvent pas le traverser. Les modèles de Taille 3+ peuvent passer par-dessus, puis il est retiré.",
+  "Solid-Field Projectors": "ACTIF (1 PE) — Place un marqueur Force Field à moins de 8\" dans un espace inoccupé. Les unités de Taille 2 ou moins ne peuvent pas le traverser. Les modèles de Taille 3+ peuvent passer par-dessus, puis il est retiré.",
+  "Hallucination": "RÉACTION (0 PE) — Quand une unité ennemie déclare une Attaque à Distance contre une unité amie à moins de 4\", l'unité amie ciblée peut effectuer un Jet d'Esquive contre cette attaque.",
+  "Titan Killers": "PASSIF — Quand cette unité effectue une Attaque de Corps-à-corps sur une cible de Taille 3 ou plus, la caractéristique Dégâts de son arme est traitée comme 2.",
+  "Precognition": "PASSIF — Cette unité peut effectuer un Jet d'Esquive contre toutes les attaques la ciblant.",
+  "Charge": "ACTIF (1 PE) — Pour déterminer la distance de Charge de cette unité, lance 2D6 au lieu de D6 et utilise le meilleur résultat, ajouté à sa caractéristique Vitesse.",
+  "Shield Overcharge": "PASSIF — Cette unité gagne RÉSISTANT (2) sur le premier Jet d'Armure de chaque Round.",
+  "Psionic Presence": "PASSIF — Toutes les armes des unités amies ciblant une unité ennemie à moins de 4\" du jeton Ombre de cette unité gagnent PRÉCISION (1).",
+  "Psionic Transfer": "ACTIF (1 PE) — Place un jeton Ombre entièrement à moins de 12\" de n'importe quel modèle de cette unité. En fin de Round, le joueur contrôlant peut placer tous les modèles de cette unité en Cohérence en traitant le jeton Ombre comme le Modèle Meneur. Le jeton Ombre a DÉPLACEMENT.",
+  "Commander": "PASSIF — Traite la caractéristique Supply de cette unité comme augmentée de 1 pour le Contrôle/la Contestation des Marqueurs de Mission, l'accomplissement d'objectifs et les tests de Désengagement.",
+  "Phase Prism": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre l'effet PLACE (0) sur une autre unité amie, qui est alors retirée du champ de bataille et renvoyée en Réserves. L'Activation de cette unité se termine.",
+  "Lightning Dash": "RÉACTION (1 PE) — Après une Charge réussie, cette unité peut déclarer une seconde Charge contre une autre unité ennemie, en ignorant la restriction d'Engagement pendant la Charge. Devastating Charge ne se déclenche pas une seconde fois.",
+  "Hierarch's Stand": "RÉACTION (1 PE) — Quand une autre unité amie à moins de 8\" est ciblée par une Attaque à Distance et que cette unité est une cible valide, redirige l'attaque sur elle. Elle peut alors effectuer un Jet d'Esquive contre cette attaque redirigée, jusqu'à la fin de l'Activation en cours.",
+  "Khalai Ingenuity": "PASSIF — Une fois par Round, quand une unité amie à moins de 4\" utilise une Capacité Spéciale coûtant de l'Énergie Psionique, ce coût est réduit de 1.",
+  "Structure": "PASSIF — Cette unité ne peut pas être Activée ni effectuer d'actions. Sa Valeur de Supply Actuelle est traitée comme 0, et elle ne peut jamais Contrôler ni Contester de Marqueur de Mission. Elle ne peut pas être ciblée par une capacité, sauf mention contraire.",
+  "Warp Conduit": "PASSIF — Une fois par Round, le joueur contrôlant peut déployer une unité au sol depuis les Réserves en utilisant le socle de cette unité comme bord d'Entrée.",
+  "Restoration": "RÉACTION — Utilisable quand une unité amie à moins de 4\" reçoit un Debuff. Retire tous les Debuffs de cette unité.",
+  "Squadron": "PASSIF — La Cohérence Horizontale de cette unité est de 4\".",
+  "Devastating Charge": "PASSIF — Immédiatement après une Charge réussie, cette unité résout un effet IMPACT (valeur selon la carte) au seuil indiqué.",
+  "Lunge": "RÉACTION (1 BM) — Quand une autre unité amie à moins de 10\" est ciblée par une Attaque à Distance, après résolution complète de l'attaque, cette unité, si elle n'est pas Engagée, peut effectuer une action de Déplacement Directement Vers l'attaquant.",
+  "Crushing Grip": "ACTIF (1 BM) — Sélectionne une unité ennemie à moins de 12\". Cette unité compte comme Activée cette Phase (place un Marqueur d'Activation à côté d'elle).",
+  "Mutating Carapace": "ACTIF (1 BM) — Sélectionne une unité ennemie à moins de 18\". Cette unité peut effectuer un Jet d'Esquive contre toutes les attaques faites par l'unité ennemie sélectionnée, avec un Modificateur de +2 sur ces Jets d'Esquive.",
+  "Leaping Strike": "ACTIF (1 BM) — Si non-Engagée, résout l'effet PLACE (6).",
+  "Detection": "PASSIF — Tant que des unités ennemies sont à moins de 6\" de cette unité, elles perdent le statut CACHÉ.",
+  "Source of Creep": "PASSIF — Une unité Zerg amie ou ennemie au sol à moins de 6\" de cette unité compte comme étant SUR RAMPANT.",
+  "Omega Network": "PASSIF — Le socle de l'Omega Worm compte comme un bord d'Entrée. Chaque Round, des unités amies au coût de Supply combiné de 2 ou moins peuvent être Déployées via ce bord. Si une unité amie Meneuse termine un Déplacement, Désengagement ou Course en contact socle-à-socle avec l'Omega Worm, le joueur contrôlant peut la retirer et la renvoyer en Réserves.",
+  "Raptor Strain": "PASSIF — Cette unité peut se déplacer à travers un Terrain Infranchissable de Taille 4 ou moins et changer d'élévation sans utiliser de Point d'Accès.",
+  "Leap": "ACTIF (1 BM) — Ajoute 2 à la distance de Charge déterminée pour cette unité.",
+  "Adrenal Overload": "ACTIF (1 BM) — Cette unité gagne un Modificateur de +1 à tous les Jets d'IMPACT.",
+  "Spawn Creep Tumor": "ACTIF (1 BM) — Place un jeton Tumeur de Rampant en contact socle-à-socle avec cette unité.",
+  "Transfusion": "RÉACTION (1 BM) — Utilisable quand une autre unité Biologique amie (y compris une Structure) subit des Dégâts à moins de 4\". Réduit les Dégâts Totaux de 2 avant application.",
+  "Psionic Link": "PASSIF — Une fois par Round, si au moins 7 modèles amis sont à moins de 6\" de cette unité, elle peut résoudre sa Capacité Spéciale à coût BM avec ce coût réduit de 1.",
+  "Burrow": "ACTIF (coût en BM variable selon l'unité) — Si non-Engagée, cette unité gagne ou perd le statut Enterré.",
+  "Regeneration": "PASSIF — Quand cette unité devient Activée, si elle a le statut Enterré, résout l'effet SOIN (2).",
+  "Roachling Infestation": "ACTIF (2 BM, une fois par partie) — Résout l'effet SUMMON (Roachling).",
+  "Underdeveloped Claws": "PASSIF — Cette unité ne peut pas gagner le statut Enterré.",
+  "Debilitating Saliva": "RÉACTION (1 BM) — Utilisable quand une unité ennemie à moins de 8\" déclare une Attaque à Distance. Applique DEBUFF Touche (1) à chacune de ses Armes à Distance.",
+  "Metabolic Boost": "ACTIF (1 BM) — Pour déterminer la distance de Charge de cette unité, lance 2D6 au lieu de D6 et utilise le meilleur résultat, ajouté à sa Vitesse.",
+  "Zergling Reconstitution": "ACTIF (1 BM) — Résout l'effet RESPAWN (2), ou RESPAWN (3) si l'unité est SUR RAMPANT.",
+  "Stimpack": "ACTIF (coût en PC) — Cette unité subit DÉGÂTS NON LÉTAUX (2). Elle gagne aussi BONUS Vitesse (3), et ses armes (à distance et de corps-à-corps) gagnent PRÉCISION (valeur selon la carte).",
+  "Concussive Shells": "RÉACTION (1 PC) — Quand une unité ennemie déclare une Charge contre une unité amie à moins de 8\", cette unité ennemie gagne DEBUFF Vitesse (2).",
+  "Life Support": "RÉACTION (1 PC) — Utilisable quand une autre unité Biologique amie à moins de 4\" subit des Dégâts. Réduit l'allocation des Dégâts Totaux de 1 pour chaque modèle de cette unité à moins de 4\" de l'unité endommagée.",
+  "Medpack": "ACTIF (1 PC) — Sélectionne une autre unité Biologique amie à moins de 4\". Résout l'effet SOIN (X) pour l'unité ciblée, où X est le nombre de modèles de cette unité à moins de 4\" de la cible.",
+  "Optical Flare": "ACTIF (2 PC) — Sélectionne une unité ennemie à moins de 12\". Jusqu'à la fin du Round, applique DEBUFF Portée (4) à ses Armes à Distance. Cette unité ne peut plus bénéficier de LONGUE PORTÉE.",
+  "Freedom Fighters": "PASSIF — La Valeur de Supply de toutes les unités amies à moins de 8\" de cette unité ne peut pas être réduite en dessous de 1 pour la Contestation des Marqueurs de Mission et l'accomplissement d'objectifs.",
+  "Orders": "ACTIF (coût en PC variable, RÉPÉTABLE) — Sélectionne une autre unité Biologique amie à moins de 8\", dépense des PC et applique un des effets : 1 PC (COUP CRITIQUE (2) sur sa première arme), 1 PC (ignore la pénalité de Désengagement ce Round), ou 2 PC (retire son Marqueur d'Activation).",
+  "Raiders Roll!": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre son Stimpack avec un coût en PC réduit de 1 (minimum 0).",
+  "Rapid Reinforcements": "PASSIF — Quand cette unité est désignée pour se déployer depuis les Réserves, elle peut résoudre l'effet PLACE (10) sur une autre unité amie. Aucun modèle ne peut être placé à moins de 8\" d'un modèle ennemi. L'Activation de cette unité se termine.",
+  "Target Lock": "ACTIF (1 PC) — Sélectionne une unité ennemie à moins de 12\". Chaque fois qu'une unité Goliath amie cible cet ennemi avec une arme Autocannon, cette arme gagne Type de Surge Léger et Blindé, et S Dice D3+1.",
+  "Indomitable": "PASSIF — Tant qu'elle est Engagée, cette unité peut cibler et être ciblée par des unités ennemies non-Engagées. Dans les deux cas, l'unité qui se défend gagne un Jet d'Esquive contre ces attaques.",
+  "Point Defense Laser": "PASSIF — Quand une autre unité amie à moins de 4\" est ciblée par une Attaque à Distance sans le mot-clé INSTANT, retire jusqu'à 2 dés du Bassin d'Attaque. Puis retire cette unité du champ de bataille.",
+  "Gliding": "PASSIF — Ce modèle a DÉPLACEMENT.",
+  // --- Vague 2 (coûts en points non confirmés) ---
+  "One with the Shadows": "PASSIF — Après que cette unité a entièrement résolu une Action, elle gagne le statut CACHÉ.",
+  "Prophetic Vision": "RÉACTION (1 PE, RÉPÉTABLE) — À utiliser quand cette unité est sélectionnée comme cible d'une attaque. Sa caractéristique Esquive est traitée comme 4+ et ne peut pas être modifiée pour cette attaque.",
+  "Sentenced to Death": "ACTIF (1 PE) — Cible une unité ennemie sur le champ de bataille. Chaque fois que Zeratul effectue une Attaque de Corps-à-corps visant l'unité sélectionnée, son arme gagne COUP CRITIQUE (2).",
+  "Void Prison": "ACTIF (1 PE) — Place un Indicateur de Faction à moins de 8\" de cette unité. Tant que des unités ennemies sont à moins de 2\" de cet Indicateur, elles subissent DEBUFF Vitesse (2).",
+  "Void Blink": "ACTIF (1 PE) — Si Non-Engagée, cette unité résout l'effet PLACE (6).",
+  "Shadow Strike": "ACTIF (1 PE) — Toutes les unités ennemies Engagées avec cette unité subissent HITS 4 (1).",
+  "Nerazim Farsight": "PASSIF — Tant que des unités ennemies sont à moins de 6\" d'un jeton Ombre, elles perdent le statut CACHÉ.",
+  "Improved Barrier": "RÉACTION (0 PE) — À utiliser quand cette unité est sélectionnée comme cible d'une attaque. Si elle a le statut Bouclier, la caractéristique Dégâts de l'arme attaquante est traitée comme 1 maximum pour cette attaque.",
+  "Phase Disruptors (remplace les Photon Disruptors)": "Amélioration (coût à confirmer) — Remplace les deux Photon Disruptors par les Phase Disruptors (RNG 12, Cible Sol, RoA 4, Touche 3+, Surge Blindé, S Dice D3, Dégâts 1, PERCE Blindé (3) ; l'arme droite gagne aussi ARME LATÉRALE). Inclut aussi : Fury Unyielding (passif — tant que cette unité est à moins de 3\" d'un Marqueur de Mission, ses Armes à Distance gagnent COUP CRITIQUE (1) contre une cible ennemie également à moins de 3\" de ce marqueur) et For the Ancients (passif — quand cette unité effectue une Attaque à Distance sur une cible à plus de 8\", l'arme attaquante gagne PRÉCISION (1)).",
+  "Large": "PASSIF — Quand le Modèle Meneur de cette unité se déplace, il ne peut pas passer par des espaces physiques de moins de 3\" de large, quelle que soit sa Taille. Si le trajet du Modèle Meneur traverse, ou si un modèle de cette unité termine son mouvement sur un élément de Terrain Infranchissable de Taille 0 ou 1 (hors Jetons), cet élément est immédiatement retiré du jeu.",
+  "Heavy Plating": "PASSIF — Quand cette unité résout un Jet d'Armure, elle gagne DUR (1), à condition de ne pas avoir actuellement le statut MODE SIÈGE.",
+  "Aftershock Rounds": "PASSIF — Tant que cette unité a le statut MODE SIÈGE, sa caractéristique Dégâts est traitée comme égale à la caractéristique Taille de l'unité ciblée actuelle (minimum 1).",
+  "Point Blank": "PASSIF — Tant que cette unité a le statut MODE SIÈGE, elle ne peut pas cibler d'unités ennemies avec lesquelles elle est Engagée.",
+  "Mode Transformation": "Amélioration ACTIVE (1 PC, coût en points à confirmer) — L'unité active gagne ou perd le statut MODE SIÈGE. Tant qu'elle a ce statut, sa caractéristique Taille est traitée comme 3.",
+  "Coordinated Strike": "Amélioration ACTIVE (0 PC, coût en points à confirmer) — Cible une unité amie Non-Engagée sur le champ de bataille (Ligne de Vue non requise). Quand cette unité résout une Attaque à Distance avec le Shock Cannon ce Round, elle peut ignorer la Portée standard de l'arme si la cible ennemie est à moins de 8\" d'un modèle de l'unité amie sélectionnée et visible de lui, en traitant ce modèle comme le modèle qui agit.",
+  "Shaped Blast": "Amélioration RÉACTION (0 PC, une fois par partie, coût en points à confirmer) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne PRÉCISION et VERROUILLÉ (4).",
+  "Smart Shells": "Amélioration RÉACTION (0 PC, une fois par partie, coût en points à confirmer) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne TIR INDIRECT et LONGUE PORTÉE (24\").",
+  "Deep Tunnel": "ACTIF (1 BM) — Place un jeton Terrier de Ravager entièrement à moins de 12\" de n'importe quel modèle de cette unité. En fin de Round, le joueur contrôlant peut placer tous les modèles de cette unité en Cohérence en traitant ce jeton comme le Modèle Meneur. Le jeton a DÉPLACEMENT.",
+  "Corrosive Bile": "ACTIF (1 BM) — Pour chaque modèle de cette unité, place un jeton Bile Corrosive sur le champ de bataille à moins de 14\" de ce modèle. Ces jetons ne sont pas retirés si cette unité est détruite. En fin de Phase d'Assaut, chaque unité subit HITS 5 (1) pour chaque jeton Bile Corrosive à moins de 1\" d'elle, puis tous les jetons de cette unité sont retirés du champ de bataille."
+};
+function toggleUpgrade(unitId, idx){
+  if(!selectedUpgrades[unitId]) selectedUpgrades[unitId] = new Set();
+  const set = selectedUpgrades[unitId];
+  if(set.has(idx)) set.delete(idx); else set.add(idx);
+  render();
+}
+
+const SLOT_ROLES = ["Basique","Élite","Soutien","Héros","Air"];
+
+function parseSlots(str){
+  const out = {};
+  if(!str) return out;
+  const re = /([A-Za-zÀ-ÿ]+)\s*×\s*(\d+)/g;
+  let m;
+  while((m = re.exec(str)) !== null){
+    if(SLOT_ROLES.includes(m[1])) out[m[1]] = (out[m[1]]||0) + parseInt(m[2]);
+  }
+  return out;
+}
+
+function availableSlots(){
+  const f = FACTIONS[state.faction];
+  const total = {};
+  SLOT_ROLES.forEach(r=>total[r]=0);
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    if(fc){ const s = parseSlots(fc.slots); Object.keys(s).forEach(r=>total[r]+=s[r]); }
+  }
+  state.cards.forEach(c=>{
+    const tc = f.tacticalCards.find(x=>x.id===c.cardId);
+    if(tc){ const s = parseSlots(tc.req); Object.keys(s).forEach(r=>total[r]+=s[r]); }
+  });
+  return total;
+}
+
+function usedSlots(){
+  const used = {};
+  SLOT_ROLES.forEach(r=>used[r]=0);
+  state.units.forEach(u=>{
+    const f = FACTIONS[state.faction];
+    const unit = f.units.find(x=>x.id===u.unitId);
+    if(unit && SLOT_ROLES.includes(unit.role)){
+      const val = typeof u.supply==="number" ? u.supply : parseFloat(u.supply);
+      used[unit.role] += (isNaN(val)?0:val);
+    }
+  });
+  return used;
+}
+
+function slotsRemaining(role){
+  return (availableSlots()[role]||0) - (usedSlots()[role]||0);
+}
+
+/* ===================== PERSISTENCE ===================== */
+/* Utilise localStorage (fonctionne dans tout navigateur, fichier ouvert en local ou hébergé) */
+
+async function storageGet(key){
+  try{ const v = localStorage.getItem(key); return v!==null ? {key, value:v} : null; }
+  catch(e){ return null; }
+}
+async function storageSet(key, value){
+  try{ localStorage.setItem(key, value); return {key, value}; }
+  catch(e){ return null; }
+}
+async function storageDelete(key){
+  try{ localStorage.removeItem(key); return {key, deleted:true}; }
+  catch(e){ return null; }
+}
+
+async function saveState(){
+  await storageSet('sc-army-list-v2', JSON.stringify(state));
+}
+async function loadState(){
+  const r = await storageGet('sc-army-list-v2');
+  if(r && r.value){ try{ state = Object.assign(state, JSON.parse(r.value)); }catch(e){} }
+  render();
+}
+
+/* ===================== MULTI-LIST SAVE/LOAD ===================== */
+
+async function getListsIndex(){
+  const r = await storageGet('lists-index');
+  try{ return (r && r.value) ? JSON.parse(r.value) : []; }catch(e){ return []; }
+}
+async function setListsIndex(arr){
+  await storageSet('lists-index', JSON.stringify(arr));
+}
+
+function openSaveModal(){
+  document.getElementById('saveNameInput').value = state.currentListName || "";
+  document.getElementById('saveNameError').style.display = 'none';
+  document.getElementById('saveModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('saveNameInput').focus(), 50);
+}
+function closeSaveModal(){
+  document.getElementById('saveModal').style.display = 'none';
+}
+async function confirmSave(){
+  const name = document.getElementById('saveNameInput').value.trim();
+  const errEl = document.getElementById('saveNameError');
+  if(!name) return;
+
+  // On ne réutilise l'identifiant de la liste actuellement chargée que si le nom n'a pas changé
+  // (mise à jour de la même liste). Si le nom est différent, c'est une nouvelle liste distincte,
+  // même si elle est chargée à partir d'une liste existante — l'originale n'est jamais écrasée.
+  const isSameList = !!state.currentListId && name.toLowerCase() === (state.currentListName||'').trim().toLowerCase();
+  const id = isSameList ? state.currentListId : ('list_'+Date.now());
+
+  // Le nom doit être unique parmi les listes sauvegardées (hors la liste en cours de mise à jour)
+  const idxCheck = await getListsIndex();
+  const nameTaken = idxCheck.some(x => x.id !== id && x.name.trim().toLowerCase() === name.toLowerCase());
+  if(nameTaken){
+    errEl.textContent = `Une autre liste s'appelle déjà "${name}". Choisis un nom différent.`;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const record = {
+    id, name, faction: state.faction, minerals: state.minerals,
+    factionCardId: state.factionCardId, units: state.units, cards: state.cards, overrides: state.overrides,
+    savedAt: new Date().toISOString()
+  };
+  try{
+    await storageSet('list:'+id, JSON.stringify(record));
+    let idx = await getListsIndex();
+    idx = idx.filter(x=>x.id!==id);
+    idx.push({id, name, faction: state.faction, minerals: state.minerals, savedAt: record.savedAt});
+    await setListsIndex(idx);
+    state.currentListId = id;
+    state.currentListName = name;
+    saveState();
+  }catch(e){}
+  closeSaveModal();
+  renderCurrentListName();
+}
+
+function renderCurrentListName(){
+  const el = document.getElementById('currentListName');
+  if(el) el.textContent = state.currentListName ? '— ' + state.currentListName : '';
+}
+
+async function renderListsView(){
+  const idx = await getListsIndex();
+  idx.sort((a,b)=> new Date(b.savedAt) - new Date(a.savedAt));
+  const box = document.getElementById('listsContainer');
+  if(idx.length===0){
+    box.innerHTML = `<div class="roster-empty">Aucune liste sauvegardée pour l'instant.<br>Ouvre l'Army Builder et clique "💾 Sauvegarder" pour en créer une.</div>`;
+    return;
+  }
+  box.innerHTML = idx.map(item=>{
+    const f = FACTIONS[item.faction];
+    const date = new Date(item.savedAt);
+    const dateStr = date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + date.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    return `<div class="roster-item" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div onclick="loadList('${item.id}')" style="cursor:pointer; flex:1;">
+          <div class="ri-name" style="color:${f?f.accent:'#fff'};">${item.name}</div>
+          <div class="ri-sub">${f?f.label:item.faction} · ${item.minerals} pts · ${dateStr}</div>
+        </div>
+        <button class="pdfbtn" onclick="exportSavedListPDF('${item.id}', event)" title="Exporter cette liste en PDF">PDF</button>
+        <button class="rm" onclick="deleteList('${item.id}', event)">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadList(id){
+  try{
+    const r = await storageGet('list:'+id);
+    if(!r || !r.value) return;
+    const rec = JSON.parse(r.value);
+    state.faction = rec.faction;
+    state.minerals = rec.minerals;
+    state.factionCardId = rec.factionCardId;
+    state.units = rec.units || [];
+    state.cards = rec.cards || [];
+    state.overrides = rec.overrides || {};
+    state.currentListId = rec.id;
+    state.currentListName = rec.name;
+    saveState();
+    render();
+    renderCurrentListName();
+    showBuilder();
+  }catch(e){}
+}
+
+async function deleteList(id, evt){
+  if(evt) evt.stopPropagation();
+  if(!confirm('Supprimer définitivement cette liste ?')) return;
+  try{
+    await storageDelete('list:'+id);
+  }catch(e){}
+  let idx = await getListsIndex();
+  idx = idx.filter(x=>x.id!==id);
+  await setListsIndex(idx);
+  if(state.currentListId===id){ state.currentListId=null; state.currentListName=""; }
+  renderListsView();
+}
+
+function newList(){
+  state.units = []; state.cards = []; state.factionCardId = null;
+  state.overrides = {}; state.currentListId = null; state.currentListName = "";
+  saveState();
+  render();
+  renderCurrentListName();
+  showBuilder();
+}
+
+/* ===================== GALERIE D'IMAGES ===================== */
+
+let currentLightboxId = null;
+
+async function getGalleryImages(){
+  const r = await storageGet('gallery-images');
+  try{ return (r && r.value) ? JSON.parse(r.value) : []; }catch(e){ return []; }
+}
+async function setGalleryImages(arr){
+  return await storageSet('gallery-images', JSON.stringify(arr));
+}
+
+function resizeImageFile(file, maxSize){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onerror = () => reject(new Error('image invalide'));
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxSize || h > maxSize){
+          if(w > h){ h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleGalleryUpload(evt){
+  const statusEl = document.getElementById('galleryStatus');
+  const files = Array.from(evt.target.files || []);
+  if(files.length===0){
+    if(statusEl) statusEl.textContent = "Aucun fichier reçu du sélecteur.";
+    return;
+  }
+  if(statusEl) statusEl.textContent = `Import de ${files.length} photo(s)...`;
+  let images = await getGalleryImages();
+  let added = 0, failed = [];
+  for(const file of files){
+    let dataUrl = null;
+    try{
+      dataUrl = await resizeImageFile(file, 900);
+    }catch(e1){
+      // Repli : si le redimensionnement échoue (format non pris en charge par canvas, ex. HEIC sur certains navigateurs),
+      // on stocke l'image brute telle que fournie par le fichier, sans compression.
+      try{
+        dataUrl = await new Promise((resolve, reject)=>{
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error);
+          reader.onload = (e)=> resolve(e.target.result);
+          reader.readAsDataURL(file);
+        });
+      }catch(e2){
+        failed.push(file.name + ' (' + (e2 && e2.message ? e2.message : 'erreur de lecture') + ')');
+        continue;
+      }
+    }
+    images.push({id: 'img_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), name: file.name, dataUrl, addedAt: new Date().toISOString()});
+    added++;
+  }
+  const result = added > 0 ? await setGalleryImages(images) : true;
+  evt.target.value = '';
+  if(!result){
+    if(statusEl) statusEl.textContent = "Espace de stockage local plein — supprime d'anciennes photos avant d'en ajouter.";
+  } else if(failed.length){
+    if(statusEl) statusEl.textContent = `${added} photo(s) ajoutée(s). Échec pour : ${failed.join(', ')}`;
+  } else if(added>0){
+    if(statusEl) statusEl.textContent = `${added} photo(s) ajoutée(s).`;
+  } else {
+    if(statusEl) statusEl.textContent = "Aucune photo n'a pu être importée.";
+  }
+  renderGalleryView();
+}
+
+async function renderGalleryView(){
+  const images = await getGalleryImages();
+  const grid = document.getElementById('galleryGrid');
+  if(images.length===0){
+    grid.innerHTML = `<div class="gallery-empty">Aucune photo pour l'instant.<br>Clique "+ Ajouter des photos" pour importer tes figurines peintes.</div>`;
+    return;
+  }
+  images.sort((a,b)=> new Date(b.addedAt) - new Date(a.addedAt));
+  grid.innerHTML = images.map(img=>`
+    <div class="gallery-thumb" onclick="openLightbox('${img.id}')">
+      <img src="${img.dataUrl}" alt="${img.name}" loading="lazy">
+    </div>
+  `).join('');
+}
+
+async function openLightbox(id){
+  const images = await getGalleryImages();
+  const img = images.find(x=>x.id===id);
+  if(!img) return;
+  currentLightboxId = id;
+  document.getElementById('lightboxImg').src = img.dataUrl;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function closeLightbox(){
+  document.getElementById('lightbox').style.display = 'none';
+  currentLightboxId = null;
+}
+async function deleteGalleryImage(id){
+  if(!id) return;
+  if(!confirm('Supprimer cette photo ?')) return;
+  let images = await getGalleryImages();
+  images = images.filter(x=>x.id!==id);
+  await setGalleryImages(images);
+  closeLightbox();
+  renderGalleryView();
+}
+
+/* ===================== HELPERS ===================== */
+
+function unitOptPoints(unit, optIndex){
+  const key = unit.id+':'+optIndex;
+  if(state.overrides[key] !== undefined) return state.overrides[key];
+  return unit.options[optIndex].points;
+}
+function cardGas(f, card){
+  const key = 'card:'+card.id;
+  if(state.overrides[key] !== undefined) return state.overrides[key];
+  return card.gas;
+}
+function gasBudget(){ return Math.round(state.minerals/10); }
+function mineralsSpent(){ return state.units.reduce((s,u)=>s+(u.points||0),0); }
+function gasSpent(){ return state.cards.reduce((s,c)=>s+(c.gas||0),0); }
+function supplyTotal(){
+  return state.units.reduce((s,u)=>{
+    const val = typeof u.supply === "number" ? u.supply : parseFloat(u.supply);
+    return s + (isNaN(val)?0:val);
+  },0);
+}
+function abilityTotal(){
+  const f = FACTIONS[state.faction];
+  let total = state.cards.reduce((s,c)=>s+(c.cp||0),0);
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    if(fc) total += fc.cp;
+  }
+  return total;
+}
+
+/* ===================== RENDER: HUD ===================== */
+
+function renderHud(){
+  const f = FACTIONS[state.faction];
+  const mSpent = mineralsSpent(), mBudget = state.minerals;
+  const gSpent = gasSpent(), gBudget = gasBudget();
+  const mOver = mSpent > mBudget, gOver = gSpent > gBudget;
+  document.getElementById('hud').innerHTML = `
+    <div class="hud-item">
+      <div class="hud-label">Minerai</div>
+      <div class="hud-value mineral ${mOver?'over':''}">${mSpent} / ${mBudget}</div>
+      <div class="hud-bar"><div class="hud-bar-fill ${mOver?'over':'mineral'}" style="width:${Math.min(100,(mSpent/mBudget)*100)}%"></div></div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">Gaz</div>
+      <div class="hud-value gas ${gOver?'over':''}">${gSpent} / ${gBudget}</div>
+      <div class="hud-bar"><div class="hud-bar-fill ${gOver?'over':'gas'}" style="width:${Math.min(100,(gSpent/gBudget)*100)}%"></div></div>
+    </div>
+    <div class="hud-item"><div class="hud-label">Supply</div><div class="hud-value">${supplyTotal()}</div></div>
+    <div class="hud-item"><div class="hud-label">${f.abilityCurrency} total</div><div class="hud-value">${abilityTotal()}</div></div>
+  `;
+}
+
+/* ===================== RENDER: CONTROLS ===================== */
+
+function renderSizeRow(){
+  const row = document.getElementById('sizeRow');
+  row.innerHTML = SIZE_PRESETS.map(v=>
+    `<div class="chip ${state.minerals===v?'active':''}" onclick="setSize(${v})">${v} pts</div>`
+  ).join('') + `
+    <div class="chip custom-input">
+      <span>Autre :</span>
+      <input type="number" step="50" value="${SIZE_PRESETS.includes(state.minerals)?'':state.minerals}" placeholder="ex 1750" onchange="setSize(parseInt(this.value)||2000)">
+    </div>`;
+}
+function setSize(v){ state.minerals = v; saveState(); render(); }
+
+function renderFactionGrid(){
+  const grid = document.getElementById('factionGrid');
+  grid.innerHTML = Object.keys(FACTIONS).map(key=>{
+    const f = FACTIONS[key];
+    return `<div class="faction-card ${state.faction===key?'active':''}" style="--fc-accent:${f.accent}" onclick="selectFaction('${key}')">
+              <div class="emblem">${f.emblem}</div>
+              <div class="fname">${f.label}</div>
+              <div class="ftag">${f.tagline}</div>
+            </div>`;
+  }).join('');
+}
+
+function hexToRgb(hex){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return `${r},${g},${b}`;
+}
+function applyFactionTheme(){
+  const f = FACTIONS[state.faction];
+  const root = document.documentElement.style;
+  root.setProperty('--accent', f.accent);
+  root.setProperty('--accent-dim', f.accentDim);
+  root.setProperty('--accent-rgb', hexToRgb(f.accent));
+}
+
+function selectFaction(key){
+  state.faction = key;
+  state.factionCardId = null;
+  state.units = [];
+  state.cards = [];
+  saveState();
+  render();
+}
+
+function renderFactionCards(){
+  const f = FACTIONS[state.faction];
+  let html = f.factionCards.map(fc=>`
+    <div class="card-option ${state.factionCardId===fc.id?'selected':''}" onclick="pickFactionCard('${fc.id}')">
+      <div class="co-top">
+        <div class="co-name">${fc.name}${fc.unique?' <span style="color:var(--dim);font-size:10px;">(sous-faction)</span>':''}</div>
+        <div class="co-cp">${fc.cp} ${f.abilityCurrency}</div>
+      </div>
+      <div class="co-slots">Emplacements : ${fc.slots}</div>
+      <div class="co-ability">${linkifyKeywords(fc.ability)}</div>
+    </div>
+  `).join('');
+  if(f.subfactionNote) html += `<div class="subfaction-note">${f.subfactionNote}</div>`;
+  document.getElementById('factionCardList').innerHTML = html;
+}
+function pickFactionCard(id){
+  state.factionCardId = (state.factionCardId===id) ? null : id;
+  saveState(); render();
+}
+
+function renderSlotsPanel(){
+  const avail = availableSlots();
+  const used = usedSlots();
+  document.getElementById('slotsPanel').innerHTML = SLOT_ROLES.map(r=>{
+    const a = avail[r]||0, u = used[r]||0;
+    const full = u >= a;
+    return `<div class="slot-chip ${full && a>0 ? 'full':''}">
+      <span class="slot-role">${r}</span>
+      <span class="slot-count">${u} / ${a}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderUnitCard(u){
+  return `
+    <div class="unit-card">
+      <div class="unit-top">
+        <div>
+          <div class="unit-name">${u.name}${u.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
+          <div class="unit-traits">${u.traits}</div>
+        </div>
+        <div class="unit-role">${u.role}</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><b>VIT</b>${u.stats.speed}</div>
+        <div class="stat"><b>ESQ</b>${u.stats.evade}</div>
+        <div class="stat"><b>ARM</b>${u.stats.armor}</div>
+        <div class="stat"><b>PV</b>${u.stats.hp}</div>
+        ${u.stats.shield!==undefined?`<div class="stat shield"><b>BOUCLIER</b>${u.stats.shield}</div>`:''}
+        <div class="stat"><b>PORTÉE</b>${u.range}</div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:var(--warn);text-transform:uppercase;margin-bottom:6px;">① Choisis la taille d'escouade</div>
+      <div class="unit-options">
+        ${u.options.map((opt,i)=>{
+          const val = unitOptPoints(u,i);
+          const isSelected = selectedOption[u.id]===i;
+          const remaining = SLOT_ROLES.includes(u.role) ? slotsRemaining(u.role) : Infinity;
+          const optSupply = typeof opt.supply==="number" ? opt.supply : parseFloat(opt.supply);
+          const slotBlocked = SLOT_ROLES.includes(u.role) && (isNaN(optSupply) ? false : optSupply > remaining);
+          const alreadyUnique = u.unique && state.units.some(x=>x.unitId===u.id);
+          const optBlocked = slotBlocked || alreadyUnique;
+          return `
+          <div class="unit-opt" style="cursor:pointer;${isSelected?'border-color:var(--accent);background:var(--panel2);':''}${optBlocked?'opacity:.5;':''}" onclick="selectOption('${u.id}',${i})" ${optBlocked?'title="'+(alreadyUnique?'Unité Unique déjà présente':'Plus assez d\'emplacements '+u.role+' disponibles')+'"':''}>
+            <span class="opt-label">${isSelected?'● ':'○ '}${opt.label}${optBlocked?' <span style="color:var(--warn);font-size:10px;">(slots insuffisants)</span>':''}</span>
+            <span class="opt-right">
+              <input class="gasinput pts" type="number" value="${val===null||val===undefined?'':val}" placeholder="?" onclick="event.stopPropagation()" onchange="setUnitOverride('${u.id}',${i},this.value)">
+              <span style="font-size:10px;color:var(--dim);">pts</span>
+            </span>
+          </div>`;
+        }).join('')}
+      </div>
+      ${selectedOption[u.id]!==undefined ? (function(){
+        const optIndex = selectedOption[u.id];
+        const opt = u.options[optIndex];
+        const basePts = unitOptPoints(u, optIndex) || 0;
+        let upgradesHtml = '';
+        let upgradesTotal = 0;
+        if(u.upgrades.length){
+          upgradesHtml = `<div class="unit-upgrades">
+            <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:var(--warn);text-transform:uppercase;margin-bottom:6px;">② Améliorations disponibles pour ce choix</div>
+            ${u.upgrades.map((up,ui)=>{
+              const parsed = parseUpgradeCost(up);
+              const useAlt = optIndex > 0 && parsed.altCost !== null;
+              const cost = useAlt ? parsed.altCost : parsed.cost;
+              const checked = selectedUpgrades[u.id] && selectedUpgrades[u.id].has(ui);
+              if(checked) upgradesTotal += cost||0;
+              const desc = UPGRADE_DESCRIPTIONS[parsed.label];
+              return `<label class="upgrade-line" style="display:flex;align-items:flex-start;gap:7px;margin-top:5px;font-size:11px;color:var(--text);cursor:pointer;">
+                <input type="checkbox" style="margin-top:2px;" ${checked?'checked':''} onchange="toggleUpgrade('${u.id}',${ui})">
+                <span style="flex:1;">
+                  ${parsed.label}${cost!==null?` <b style="color:var(--mineral);font-weight:400;">+${cost} pts</b>`:' <span style="color:var(--warn);">(coût à vérifier)</span>'}
+                  ${checked && desc ? `<div style="margin-top:4px;padding:6px 8px;background:var(--panel2);border-left:2px solid var(--accent);border-radius:2px;color:var(--dim);font-size:10.5px;line-height:1.5;">${linkifyKeywords(desc)}</div>` : ''}
+                </span>
+              </label>`;
+            }).join('')}
+          </div>`;
+        }
+        const remaining = SLOT_ROLES.includes(u.role) ? slotsRemaining(u.role) : Infinity;
+        const optSupply = typeof opt.supply==="number" ? opt.supply : parseFloat(opt.supply);
+        const slotBlocked = SLOT_ROLES.includes(u.role) && (isNaN(optSupply) ? false : optSupply > remaining);
+        const alreadyUnique = u.unique && state.units.some(x=>x.unitId===u.id);
+        const blocked = slotBlocked || alreadyUnique;
+        const reason = alreadyUnique ? 'Unité Unique déjà présente dans la liste' : (slotBlocked ? 'Plus assez d\'emplacements '+u.role+' disponibles' : '');
+        return `${upgradesHtml}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+            <span style="font-family:var(--font-display);font-size:12px;color:var(--mineral);">Total : ${basePts+upgradesTotal} pts</span>
+            <button ${blocked?'disabled title="'+reason+'"':''} style="background:var(--accent);color:#04101c;border:none;border-radius:3px;padding:8px 16px;font-family:var(--font-display);font-size:12px;cursor:pointer;${blocked?'opacity:.35;cursor:not-allowed;':''}" onclick="addUnit('${u.id}',${optIndex})">③ + Ajouter à la liste</button>
+          </div>`;
+      })() : `<div style="font-size:11px;color:var(--dim);margin-top:6px;">Choisis une taille d'escouade ci-dessus pour voir les améliorations disponibles et ajouter l'unité.</div>`}
+      ${u.innate && u.innate.length ? `<div class="unit-upgrades">
+        <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;">Capacités natives (incluses dans le coût)</div>
+        ${u.innate.map(name=>{
+          const desc = UPGRADE_DESCRIPTIONS[name];
+          return `<div style="margin-top:5px;font-size:11px;">
+            <span style="color:var(--text);font-weight:600;">${name}</span>
+            ${desc?`<div style="margin-top:3px;padding:6px 8px;background:var(--panel2);border-left:2px solid var(--dim);border-radius:2px;color:var(--dim);font-size:10.5px;line-height:1.5;">${linkifyKeywords(desc)}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+    </div>
+  `;
+}
+
+const UNIT_ROLE_ORDER = ["Héros","Basique","Élite","Soutien","Air","Autre"];
+
+function toggleUnitGroup(role){
+  const key = 'unit:'+role;
+  collapsedGroups[key] = !collapsedGroups[key];
+  renderUnits();
+}
+
+function renderUnits(){
+  const f = FACTIONS[state.faction];
+  const rolesPresent = [...new Set(f.units.map(u=>u.role))];
+  const orderedRoles = UNIT_ROLE_ORDER.filter(r=>rolesPresent.includes(r))
+    .concat(rolesPresent.filter(r=>!UNIT_ROLE_ORDER.includes(r)));
+  document.getElementById('unitList').innerHTML = orderedRoles.map(role=>{
+    const group = f.units.filter(u=>u.role===role);
+    const collapsed = !!collapsedGroups['unit:'+role];
+    const label = `<div class="roster-group-label" style="cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px;" onclick="toggleUnitGroup('${role}')">
+        <span style="display:inline-block;">${collapsed?'▸':'▾'}</span>${role} (${group.length})
+      </div>`;
+    return label + (collapsed ? '' : group.map(renderUnitCard).join(''));
+  }).join('');
+}
+function setUnitOverride(unitId, optIndex, val){
+  const key = unitId+':'+optIndex;
+  state.overrides[key] = val===''?null:parseInt(val);
+  saveState(); render();
+}
+
+function addUnit(unitId, optIndex){
+  const f = FACTIONS[state.faction];
+  const unit = f.units.find(u=>u.id===unitId);
+  const opt = unit.options[optIndex];
+  if(unit.unique && state.units.some(x=>x.unitId===unitId)){
+    return; // unité Unique déjà dans la liste
+  }
+  if(SLOT_ROLES.includes(unit.role)){
+    const optSupply = typeof opt.supply==="number" ? opt.supply : parseFloat(opt.supply);
+    if(!isNaN(optSupply) && optSupply > slotsRemaining(unit.role)){
+      return; // pas assez d'emplacements disponibles pour ce rôle
+    }
+  }
+  let pts = unitOptPoints(unit, optIndex) || 0;
+  const chosenUpgrades = [];
+  if(selectedUpgrades[unitId]){
+    selectedUpgrades[unitId].forEach(ui=>{
+      const parsed = parseUpgradeCost(unit.upgrades[ui]);
+      const useAlt = optIndex > 0 && parsed.altCost !== null;
+      const cost = useAlt ? parsed.altCost : parsed.cost;
+      pts += cost || 0;
+      chosenUpgrades.push(parsed.label + (cost?` (+${cost} pts)`:' (coût à vérifier)'));
+    });
+  }
+  state.units.push({unitId, optIndex, points: pts, name: unit.name, label: opt.label, supply: opt.supply, upgrades: chosenUpgrades});
+  selectedUpgrades[unitId] = new Set(); // reset for next add
+  selectedOption[unitId] = undefined; // reset squad-size choice for next add
+  saveState(); render();
+}
+function removeUnit(idx){ state.units.splice(idx,1); saveState(); render(); }
+
+function toggleTacticalCollapse(){
+  collapsedGroups.tactical = !collapsedGroups.tactical;
+  renderTactical();
+}
+
+function renderTactical(){
+  const f = FACTIONS[state.faction];
+  const caret = document.getElementById('tacticalCaret');
+  if(caret) caret.textContent = collapsedGroups.tactical ? '▸' : '▾';
+  if(collapsedGroups.tactical){
+    document.getElementById('tacticalList').innerHTML = '';
+    return;
+  }
+  document.getElementById('tacticalList').innerHTML = f.tacticalCards.map(tc=>{
+    const gasVal = cardGas(f,tc);
+    return `
+    <div class="card-option">
+      <div class="co-top">
+        <div class="co-name">${tc.name}${tc.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
+        <div class="co-cp">${tc.cp} ${f.abilityCurrency}</div>
+      </div>
+      <div class="co-slots">Condition suggérée : ${tc.req}</div>
+      <div class="co-ability">${linkifyKeywords(tc.ability)}</div>
+      <div class="co-gasrow">
+        <input class="gasinput" type="number" value="${gasVal===null||gasVal===undefined?'':gasVal}" placeholder="?" onchange="setCardOverride('${tc.id}',this.value)">
+        <span style="font-size:10px;color:var(--dim);">gaz</span>
+        <button style="margin-left:auto;background:var(--accent);color:#04101c;border:none;border-radius:3px;padding:6px 12px;font-family:var(--font-display);font-size:11px;cursor:pointer;" onclick="addCard('${tc.id}')">+ Ajouter</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setCardOverride(cardId, val){
+  state.overrides['card:'+cardId] = val===''?null:parseInt(val);
+  saveState(); render();
+}
+function addCard(cardId){
+  const f = FACTIONS[state.faction];
+  const tc = f.tacticalCards.find(c=>c.id===cardId);
+  if(tc.unique && state.cards.find(c=>c.cardId===cardId)) return;
+  const gasVal = cardGas(f,tc) || 0;
+  state.cards.push({cardId, gas:gasVal, cp:tc.cp, name:tc.name});
+  saveState(); render();
+}
+function removeCard(idx){ state.cards.splice(idx,1); saveState(); render(); }
+
+function renderRoster(){
+  const box = document.getElementById('rosterBox');
+  const f = FACTIONS[state.faction];
+  if(state.units.length===0 && state.cards.length===0 && !state.factionCardId){
+    box.innerHTML = `<div class="roster-empty">Ta liste est vide.<br>Choisis un format, une faction, une carte de faction, puis ajoute des unités.</div>`;
+    return;
+  }
+  let html = '';
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    html += `<div class="roster-group-label">Carte de faction</div>
+      <div class="roster-item"><div class="ri-main"><div class="ri-name">${fc.name}</div><div class="ri-sub">${fc.cp} ${f.abilityCurrency}</div></div></div>`;
+  }
+  if(state.units.length){
+    html += `<div class="roster-group-label">Unités (${state.units.length})</div>`;
+    html += state.units.map((u,i)=>`
+      <div class="roster-item">
+        <div class="ri-main"><div class="ri-name">${u.name}</div><div class="ri-sub">${u.label} · sup ${u.supply}${u.upgrades && u.upgrades.length ? '<br>↳ '+u.upgrades.join(', ') : ''}</div></div>
+        <div style="display:flex;align-items:center;">
+          <span class="ri-cost">${u.points} pts</span>
+          <button class="rm" onclick="removeUnit(${i})">×</button>
+        </div>
+      </div>`).join('');
+  }
+  if(state.cards.length){
+    html += `<div class="roster-group-label">Cartes tactiques (${state.cards.length})</div>`;
+    html += state.cards.map((c,i)=>`
+      <div class="roster-item">
+        <div class="ri-main"><div class="ri-name">${c.name}</div><div class="ri-sub">${c.cp} ${f.abilityCurrency}</div></div>
+        <div style="display:flex;align-items:center;">
+          <span class="ri-cost gascost">${c.gas} gaz</span>
+          <button class="rm" onclick="removeCard(${i})">×</button>
+        </div>
+      </div>`).join('');
+  }
+  box.innerHTML = html;
+}
+
+function render(){
+  applyFactionTheme();
+  renderHud(); renderSizeRow(); renderFactionGrid(); renderFactionCards();
+  renderTactical(); renderSlotsPanel(); renderUnits(); renderRoster(); renderCurrentListName();
+}
+
+/* ===================== EXPORT ===================== */
+
+function doExport(){
+  const f = FACTIONS[state.faction];
+  let lines = [];
+  lines.push(`=== VOID COMMAND — LISTE ${f.label.toUpperCase()} — ${state.minerals} pts ===`);
+  if(state.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===state.factionCardId);
+    lines.push(`Carte de faction : ${fc.name}`);
+  }
+  lines.push(''); lines.push('-- Unités --');
+  state.units.forEach(u=> lines.push(`${u.name} — ${u.label} — ${u.points} pts (sup ${u.supply})${u.upgrades && u.upgrades.length ? '\n  ↳ '+u.upgrades.join(', ') : ''}`));
+  lines.push(''); lines.push('-- Cartes tactiques --');
+  state.cards.forEach(c=> lines.push(`${c.name} — ${c.gas} gaz — ${c.cp} ${f.abilityCurrency}`));
+  lines.push('');
+  lines.push(`Minerai : ${mineralsSpent()} / ${state.minerals}`);
+  lines.push(`Gaz : ${gasSpent()} / ${gasBudget()}`);
+  lines.push(`Supply total : ${supplyTotal()}`);
+  lines.push(`${f.abilityCurrency} total : ${abilityTotal()}`);
+
+  const box = document.getElementById('exportBox');
+  box.style.display = 'block';
+  box.value = lines.join('\n');
+  box.select();
+  try{ document.execCommand('copy'); }catch(e){}
+}
+
+/* ===================== EXPORT PDF ===================== */
+/* Utilise jsPDF (chargé via CDN) pour générer un PDF autonome de la liste,
+   utilisable aussi bien pour la liste en cours dans l'Army Builder que pour
+   n'importe quelle liste sauvegardée, sans modifier l'état en cours. */
+
+function slugify(str){
+  return (str||'liste').toString().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase() || 'liste';
+}
+
+function hexToRgb(hex){
+  hex = (hex||'#4fa8ff').replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16);
+  return [(num>>16)&255, (num>>8)&255, num&255];
+}
+
+function pdfTotals(rec){
+  const f = FACTIONS[rec.faction];
+  const minerals = (rec.units||[]).reduce((s,u)=>s+(u.points||0),0);
+  const gas = (rec.cards||[]).reduce((s,c)=>s+(c.gas||0),0);
+  const gasBudgetVal = Math.round((rec.minerals||0)/10);
+  const supply = (rec.units||[]).reduce((s,u)=>{
+    const v = typeof u.supply==="number" ? u.supply : parseFloat(u.supply);
+    return s + (isNaN(v)?0:v);
+  },0);
+  let ability = (rec.cards||[]).reduce((s,c)=>s+(c.cp||0),0);
+  if(rec.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===rec.factionCardId);
+    if(fc) ability += fc.cp;
+  }
+  return {minerals, gas, gasBudget: gasBudgetVal, supply, ability};
+}
+
+function exportRosterPDF(rec){
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    alert("Le module d'export PDF n'a pas pu se charger (vérifie ta connexion) — réessaie dans un instant.");
+    return;
+  }
+  if(!rec.units || (rec.units.length===0 && rec.cards.length===0 && !rec.factionCardId)){
+    alert("Cette liste est vide — ajoute au moins une unité avant d'exporter en PDF.");
+    return;
+  }
+  const f = FACTIONS[rec.faction];
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 42;
+  const bottomLimit = pageH - 56;
+  const [ar, ag, ab] = hexToRgb(f.accent);
+  let y = 0;
+
+  function drawHeader(){
+    doc.setFillColor(8,11,16);
+    doc.rect(0,0,pageW,78,'F');
+    doc.setFillColor(ar,ag,ab);
+    doc.rect(0,74,pageW,4,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(20);
+    doc.text('VOID COMMAND', marginX, 34);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(200,210,220);
+    doc.text('Army Builder · StarCraft: The Miniatures Game', marginX, 52);
+    y = 102;
+  }
+  function ensureSpace(h){
+    if(y + h > bottomLimit){ doc.addPage(); y = 40; }
+  }
+  function sectionTitle(txt){
+    ensureSpace(20);
+    const label = txt.toUpperCase();
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(ar,ag,ab);
+    doc.text(label, marginX, y);
+    doc.setDrawColor(ar,ag,ab); doc.setLineWidth(0.6);
+    doc.line(marginX + doc.getTextWidth(label) + 8, y-3, pageW-marginX, y-3);
+    y += 16;
+  }
+
+  drawHeader();
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(20,24,30);
+  const title = `${rec.name ? rec.name+' — ' : ''}${f.label.toUpperCase()} — ${rec.minerals} pts`;
+  doc.text(title, marginX, y);
+  y += 24;
+
+  if(rec.factionCardId){
+    const fc = f.factionCards.find(c=>c.id===rec.factionCardId);
+    if(fc){
+      sectionTitle('Carte de faction');
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
+      doc.text(`${fc.name} (${fc.cp} ${f.abilityCurrency})`, marginX, y); y += 13;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,110,125);
+      doc.splitTextToSize(fc.ability, pageW - marginX*2).forEach(l=>{ ensureSpace(11); doc.text(l, marginX, y); y+=11; });
+      y += 10;
+    }
+  }
+
+  if(rec.units && rec.units.length){
+    sectionTitle(`Unités (${rec.units.length})`);
+    rec.units.forEach(u=>{
+      ensureSpace(24);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
+      doc.text(u.name, marginX, y);
+      const ptsTxt = `${u.points} pts`;
+      doc.setTextColor(ar,ag,ab);
+      doc.text(ptsTxt, pageW - marginX - doc.getTextWidth(ptsTxt), y);
+      y += 13;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,110,125);
+      doc.text(`${u.label} · supply ${u.supply}`, marginX, y);
+      y += 12;
+      if(u.upgrades && u.upgrades.length){
+        u.upgrades.forEach(up=>{
+          doc.splitTextToSize('» ' + up, pageW - marginX*2 - 10).forEach(l=>{
+            ensureSpace(11); doc.text(l, marginX+10, y); y += 11;
+          });
+        });
+      }
+      y += 6;
+    });
+  }
+
+  if(rec.cards && rec.cards.length){
+    sectionTitle(`Cartes tactiques (${rec.cards.length})`);
+    rec.cards.forEach(c=>{
+      ensureSpace(14);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
+      doc.text(c.name, marginX, y);
+      const costTxt = `${c.gas} gaz · ${c.cp} ${f.abilityCurrency}`;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(95,150,120);
+      doc.text(costTxt, pageW - marginX - doc.getTextWidth(costTxt), y);
+      y += 14;
+    });
+    y += 4;
+  }
+
+  const totals = pdfTotals(rec);
+  ensureSpace(70);
+  doc.setDrawColor(210,215,222); doc.setLineWidth(0.6);
+  doc.line(marginX, y, pageW-marginX, y);
+  y += 18;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,24,30);
+  doc.text(`Minerai : ${totals.minerals} / ${rec.minerals}`, marginX, y);
+  doc.text(`Gaz : ${totals.gas} / ${totals.gasBudget}`, marginX + 190, y);
+  y += 16;
+  doc.text(`Supply total : ${totals.supply}`, marginX, y);
+  doc.text(`${f.abilityCurrency} total : ${totals.ability}`, marginX + 190, y);
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140,148,160);
+    doc.text('Outil communautaire non-officiel — Void Command. Statistiques et coûts : sources publiques Archon Studio / Stimpacked, à vérifier avec tes cartes physiques.', marginX, pageH-30, {maxWidth: pageW-marginX*2});
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} — page ${i}/${pageCount}`, pageW-marginX, pageH-14, {align:'right'});
+  }
+
+  doc.save(`void-command-${slugify(rec.name || f.label)}.pdf`);
+}
+
+function doExportPDF(){
+  exportRosterPDF({
+    name: state.currentListName || '',
+    faction: state.faction,
+    minerals: state.minerals,
+    factionCardId: state.factionCardId,
+    units: state.units,
+    cards: state.cards
+  });
+}
+
+async function exportSavedListPDF(id, evt){
+  if(evt) evt.stopPropagation();
+  try{
+    const r = await storageGet('list:'+id);
+    if(!r || !r.value) return;
+    exportRosterPDF(JSON.parse(r.value));
+  }catch(e){
+    alert("Impossible d'exporter cette liste en PDF.");
+  }
+}
+
+function resetList(){
+  state.units = []; state.cards = []; state.factionCardId = null;
+  saveState(); render();
+  document.getElementById('exportBox').style.display='none';
+}
+
+const ALL_VIEWS = ['menuView','builderView','listsView','galleryView','eventsView','collectionView'];
+function hideAllViews(){
+  ALL_VIEWS.forEach(id=>{ const el = document.getElementById(id); if(el) el.style.display='none'; });
+}
+function showBuilder(){
+  hideAllViews();
+  document.getElementById('builderView').style.display = 'block';
+}
+function showMenu(){
+  hideAllViews();
+  document.getElementById('menuView').style.display = 'block';
+}
+function showLists(){
+  hideAllViews();
+  document.getElementById('listsView').style.display = 'block';
+  renderListsView();
+}
+function showGallery(){
+  hideAllViews();
+  document.getElementById('galleryView').style.display = 'block';
+  const statusEl = document.getElementById('galleryStatus');
+  if(statusEl) statusEl.textContent = '';
+  renderGalleryView();
+}
+function showEvents(){
+  hideAllViews();
+  document.getElementById('eventsView').style.display = 'block';
+  const el = document.getElementById('eventsLocStatus');
+  if(el) el.textContent = '';
+}
+
+/* ===================== MA COLLECTION ===================== */
+
+let collectionActiveFaction = 'terran';
+
+async function getCollection(){
+  const r = await storageGet('collection-v1');
+  try{ return (r && r.value) ? JSON.parse(r.value) : {}; }catch(e){ return {}; }
+}
+async function setCollectionOwned(factionKey, unitId, qty){
+  const col = await getCollection();
+  if(!col[factionKey]) col[factionKey] = {};
+  const n = Math.max(0, parseInt(qty, 10) || 0);
+  if(n === 0) delete col[factionKey][unitId];
+  else col[factionKey][unitId] = n;
+  await storageSet('collection-v1', JSON.stringify(col));
+  return col;
+}
+
+function unitModelCount(unit){
+  // Nombre de modèles de la plus grande option d'escouade, pour estimer la taille d'une boîte de référence
+  if(!unit.options || !unit.options.length) return 1;
+  const nums = unit.options.map(o=>{
+    const m = (o.label||'').match(/(\d+)\s*mod/i);
+    return m ? parseInt(m[1],10) : 1;
+  });
+  return Math.max(...nums, 1);
+}
+
+async function showCollection(){
+  hideAllViews();
+  document.getElementById('collectionView').style.display = 'block';
+  await renderCollectionFactionRow();
+  await renderCollectionSummary();
+  await renderCollectionList();
+}
+
+async function renderCollectionFactionRow(){
+  const row = document.getElementById('collectionFactionRow');
+  row.innerHTML = Object.keys(FACTIONS).map(fk=>{
+    const f = FACTIONS[fk];
+    const active = fk === collectionActiveFaction ? 'active' : '';
+    return `<div class="chip ${active}" style="${active?`border-color:${f.accent}; background:${f.accentDim}; color:#fff;`:''}" onclick="setCollectionFaction('${fk}')">${f.emblem} ${f.label}</div>`;
+  }).join('');
+}
+
+async function setCollectionFaction(fk){
+  collectionActiveFaction = fk;
+  await renderCollectionFactionRow();
+  await renderCollectionList();
+}
+
+async function renderCollectionSummary(){
+  const col = await getCollection();
+  const box = document.getElementById('collectionSummary');
+  const rows = Object.keys(FACTIONS).map(fk=>{
+    const f = FACTIONS[fk];
+    const owned = col[fk] || {};
+    const types = Object.keys(owned).filter(id=>owned[id]>0).length;
+    const models = Object.values(owned).reduce((a,b)=>a+b, 0);
+    return `<div class="roster-item" style="cursor:pointer;" onclick="setCollectionFaction('${fk}'); showCollection();">
+      <div class="ri-main">
+        <div class="ri-name" style="color:${f.accent};">${f.emblem} ${f.label}</div>
+        <div class="ri-sub">${types} unité${types>1?'s':''} possédée${types>1?'s':''} · ${models} figurine${models>1?'s':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.innerHTML = rows;
+}
+
+async function renderCollectionList(){
+  const col = await getCollection();
+  const fk = collectionActiveFaction;
+  const f = FACTIONS[fk];
+  const owned = col[fk] || {};
+  const box = document.getElementById('collectionList');
+  box.innerHTML = `<div class="section-eyebrow">${f.label} — unités</div>` + f.units.map(u=>{
+    const qty = owned[u.id] || 0;
+    const boxSize = unitModelCount(u);
+    return `<div class="roster-item">
+      <div class="ri-main" style="flex:1;">
+        <div class="ri-name">${u.name}</div>
+        <div class="ri-sub">${u.role} · boîte de référence : ${boxSize} modèle${boxSize>1?'s':''}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="rm" style="color:var(--text);" onclick="collectionStep('${fk}','${u.id}',-1)">−</button>
+        <input type="number" min="0" value="${qty}" inputmode="numeric"
+          style="width:48px; text-align:center; background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:3px; padding:5px 2px; font-family:var(--font-display); font-size:13px;"
+          onchange="collectionSet('${fk}','${u.id}', this.value)">
+        <button class="rm" style="color:var(--text);" onclick="collectionStep('${fk}','${u.id}',1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function collectionSet(fk, unitId, value){
+  await setCollectionOwned(fk, unitId, value);
+  await renderCollectionSummary();
+  await renderCollectionList();
+}
+
+async function collectionStep(fk, unitId, delta){
+  const col = await getCollection();
+  const current = (col[fk] && col[fk][unitId]) || 0;
+  await setCollectionOwned(fk, unitId, current + delta);
+  await renderCollectionSummary();
+  await renderCollectionList();
+}
+
+
+function findEventsNearMe(){
+  const statusEl = document.getElementById('eventsLocStatus');
+  if(!navigator.geolocation){
+    if(statusEl) statusEl.textContent = "Géolocalisation non disponible sur ce navigateur — ouverture d'une recherche générale.";
+    window.open('https://www.google.com/search?q=' + encodeURIComponent('tournoi StarCraft TMG près de moi'), '_blank');
+    return;
+  }
+  if(statusEl) statusEl.textContent = "Localisation en cours...";
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const {latitude, longitude} = pos.coords;
+      if(statusEl) statusEl.textContent = "Position trouvée — ouverture de la recherche.";
+      window.open(`https://www.google.com/maps/search/tournoi+StarCraft+TMG/@${latitude},${longitude},11z`, '_blank');
+    },
+    (err)=>{
+      if(statusEl) statusEl.textContent = "Position refusée ou indisponible — ouverture d'une recherche générale à la place.";
+      window.open('https://www.google.com/search?q=' + encodeURIComponent('tournoi StarCraft TMG près de moi'), '_blank');
+    },
+    {timeout:8000}
+  );
+}
+
+/* ===================== AUDIO DE FOND ===================== */
+/* Piste attendue : "theme.mp3" au même niveau que index.html (dépose n'importe quel fichier
+   sous ce nom dans le repo). Aucun navigateur n'autorise le son avant une interaction de
+   l'utilisateur (encore plus strict sur mobile) — impossible à contourner, où que ce soit.
+   À la place, on démarre la musique dès le tout premier tap/clic/touche n'importe où sur la
+   page, ce qui donne l'effet le plus proche d'un vrai autoplay. Le bouton reste disponible pour
+   couper/relancer manuellement ensuite, et le volume choisi est mémorisé (localStorage). */
+
+const AUDIO_VOLUME_KEY = 'sc-audio-volume';
+let audioUserToggled = false; // true dès que l'utilisateur a touché le bouton lui-même
+
+function playAudio(onBlocked){
+  const audio = document.getElementById('bgAudio');
+  const btn = document.getElementById('audioToggle');
+  if(!audio || !audio.paused) return;
+  let playResult;
+  try{ playResult = audio.play(); }catch(e){ playResult = null; }
+  const onPlaying = ()=>{ if(btn){ btn.textContent = '🔊'; btn.classList.add('playing'); } };
+  if(playResult && typeof playResult.then === 'function'){
+    playResult.then(onPlaying).catch(()=>{ if(onBlocked) onBlocked(); });
+  } else {
+    // Navigateur ne renvoyant pas de Promise depuis play() (rare) : on suppose que ça a marché.
+    onPlaying();
+  }
+}
+
+function initAudio(){
+  const audio = document.getElementById('bgAudio');
+  const volumeInput = document.getElementById('audioVolume');
+  if(!audio || !volumeInput) return;
+  let savedVolume = 0.35;
+  try{
+    const raw = localStorage.getItem(AUDIO_VOLUME_KEY);
+    if(raw !== null && !isNaN(parseFloat(raw))) savedVolume = parseFloat(raw);
+  }catch(e){}
+  audio.volume = savedVolume;
+  volumeInput.value = savedVolume;
+  audio.addEventListener('error', ()=>{
+    const btn = document.getElementById('audioToggle');
+    if(btn){ btn.title = "theme.mp3 introuvable — dépose ce fichier à côté de index.html"; btn.style.opacity = '.4'; }
+  });
+
+  // Démarrage automatique dès la première interaction sur la page (une seule fois).
+  const startOnFirstInteraction = ()=>{
+    document.removeEventListener('pointerdown', startOnFirstInteraction);
+    document.removeEventListener('keydown', startOnFirstInteraction);
+    if(audioUserToggled) return; // l'utilisateur a déjà décidé via le bouton, on respecte son choix
+    playAudio();
+  };
+  document.addEventListener('pointerdown', startOnFirstInteraction, {once:true});
+  document.addEventListener('keydown', startOnFirstInteraction, {once:true});
+}
+
+function toggleAudio(){
+  audioUserToggled = true;
+  const audio = document.getElementById('bgAudio');
+  const btn = document.getElementById('audioToggle');
+  if(!audio) return;
+  if(audio.paused){
+    playAudio(()=>{
+      if(btn) btn.title = "Lecture bloquée par le navigateur — réessaie (theme.mp3 doit être présent à côté de index.html).";
+    });
+  } else {
+    audio.pause();
+    if(btn){ btn.textContent = '🔈'; btn.classList.remove('playing'); }
+  }
+}
+
+function setAudioVolume(val){
+  const audio = document.getElementById('bgAudio');
+  const v = parseFloat(val);
+  if(audio) audio.volume = v;
+  try{ localStorage.setItem(AUDIO_VOLUME_KEY, String(v)); }catch(e){}
+}
+
+/* ===================== INIT ===================== */
+initAudio();
+loadState();
+</script>
+</body>
+</html>
