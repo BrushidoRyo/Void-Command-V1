@@ -108,6 +108,10 @@ section{margin-top:26px;}
 .chip.custom-input input{ width:64px; background:transparent; border:none; color:var(--text); font-family:var(--font-display); font-size:13px; outline:none; }
 
 .faction-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+.two-col-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px;}
+.two-col-grid .card-option{margin-bottom:0; padding:9px 10px;}
+.two-col-grid .co-name{font-size:12.5px;}
+.two-col-grid .co-ability{font-size:11px;}
 .faction-card{
   border:1px solid var(--line); background:var(--panel); border-radius:4px; padding:12px 8px;
   text-align:center; cursor:pointer; position:relative; overflow:hidden;
@@ -351,9 +355,9 @@ header.title{position:relative;}
     <div id="eventsLocStatus" style="font-size:12px; color:var(--dim); margin-bottom:20px;"></div>
 
     <div class="section-eyebrow">Ressources communautaires</div>
-    <div class="card-option" onclick="window.open('https://www.sctmg-vault.com/events','_blank')">
-      <div class="co-top"><div class="co-name">StarCraft Vault — Events</div></div>
-      <div class="co-ability">Tracker de tournois communautaire (non-officiel) : parties, ligues, classements par région.</div>
+    <div class="card-option" onclick="window.open('https://starcraft.longshanks.org/','_blank')">
+      <div class="co-top"><div class="co-name">Longshanks — StarCraft TMG</div></div>
+      <div class="co-ability">Base de tournois communautaire (non-officielle) : résultats, classements et événements référencés par région.</div>
     </div>
     <div class="card-option" onclick="window.open('https://maxireves.fr','_blank')">
       <div class="co-top"><div class="co-name">Maxi Rêves (Abbeville)</div></div>
@@ -412,6 +416,21 @@ header.title{position:relative;}
     <div id="slotsPanel" class="chiprow" style="margin-bottom:14px;"></div>
     <div class="section-eyebrow">Unités disponibles</div>
     <div id="unitList"></div>
+  </section>
+
+  <section class="builder-controls" id="missionsSection">
+    <div class="section-eyebrow" style="cursor:pointer; user-select:none;" onclick="toggleMissionsCollapse()">
+      <span id="missionsCaret" style="display:inline-block; margin-right:4px;">▾</span>Missions (plusieurs possibles)
+    </div>
+    <div id="missionsList" class="two-col-grid"></div>
+    <div style="font-size:11px; color:var(--dim); margin-top:6px; line-height:1.5;">Texte des cartes conservé en anglais pour éviter les erreurs de traduction sur les règles ; valeurs "?" et détails à confirmer sur tes cartes physiques.</div>
+  </section>
+
+  <section class="builder-controls" id="battlefieldsSection">
+    <div class="section-eyebrow" style="cursor:pointer; user-select:none;" onclick="toggleBattlefieldsCollapse()">
+      <span id="battlefieldsCaret" style="display:inline-block; margin-right:4px;">▾</span>Champs de bataille (plusieurs possibles)
+    </div>
+    <div id="battlefieldsList" class="two-col-grid"></div>
   </section>
 
   <section>
@@ -713,6 +732,82 @@ const FACTIONS = {
 
 const SIZE_PRESETS = [1000, 1500, 2000];
 
+/* ===================== MISSIONS & CHAMPS DE BATAILLE =====================
+   Données transcrites à partir des cartes officielles Archon Studio (photos
+   envoyées par l'utilisateur). Le texte des règles (Mission Parameters /
+   Scoring Conditions / Special) est conservé en anglais, langue des cartes,
+   pour ne pas introduire d'erreur de traduction sur du texte de règles —
+   à vérifier avec les cartes physiques avant un tournoi, notamment les
+   valeurs marquées "?". Communes à toutes les factions. */
+
+const MISSIONS = [
+  {
+    id: "hold_position", name: "Hold Position",
+    parameters: "All Mission Markers are Activated.",
+    scoring: "Score VP equal to the Enemy Supply you destroy this Round. FROM THE START OF THE SECOND ROUND: for each Controlled Mission Marker, gain 1 VP if it is Neutral or associated with your colour, or 2 VP if it is associated with the Opponent's colour.",
+    special: null,
+    variants: {
+      standard: { gameLength: 5, supply: 6, reinforcement: 2, endLead: 10 },
+      skirmish: { gameLength: 5, supply: 3, reinforcement: 1, endLead: 8 }
+    }
+  },
+  {
+    id: "supply_drop", name: "Supply Drop",
+    parameters: "All Mission Markers start Deactivated. AT THE START OF THE FIRST ROUND: Mission Marker 5 is automatically Activated. FROM THE START OF EACH ROUND: randomly determine one Deactivated Mission Marker and flip it to its Activated side.",
+    scoring: "Score VP equal to the Enemy Supply you destroy this Round. FROM THE START OF THE SECOND ROUND: for each Controlled Mission Marker that was Activated this Round, gain VP equal to it and remove that Marker.",
+    special: null,
+    variants: {
+      standard: { gameLength: 5, supply: 6, reinforcement: 2, endLead: 12 },
+      skirmish: { gameLength: 4, supply: 4, reinforcement: 1, endLead: null }
+    }
+  },
+  {
+    id: "gather_the_resources", name: "Gather the Resources",
+    parameters: "All Mission Markers are Activated.",
+    scoring: "Score VP equal to the Enemy Supply you destroy this Round. FROM THE START OF THE SECOND ROUND: gain 2 VP for each Controlled Mission Marker that is Neutral or associated with the Opponent's colour.",
+    special: "SPECIAL — GATHER ACTION: if a unit is Unengaged and within Gather Reach of a Mission Marker that is Neutral or associated with the Opponent's colour, it may perform the Gather Action instead of a standard Action. Doing so scores 1 VP immediately (2 VP instead, FROM THE START OF THE SECOND ROUND).",
+    variants: {
+      standard: { gameLength: 5, supply: 6, reinforcement: 2, endLead: 10 },
+      skirmish: { gameLength: 5, supply: 3, reinforcement: 1, endLead: 8 }
+    }
+  },
+  {
+    id: "frontlines", name: "Frontlines",
+    parameters: "All Mission Markers are Activated.",
+    scoring: "Score VP equal to the Enemy Supply you destroy this Round. FROM THE START OF THE SECOND ROUND: gain 1 VP for each Controlled Mission Marker, plus an additional 2 VP for each Marker if you gained Control of it from the Opponent this Round.",
+    special: null,
+    variants: {
+      standard: { gameLength: 5, supply: 6, reinforcement: 2, endLead: 10 },
+      skirmish: { gameLength: 5, supply: 3, reinforcement: 1, endLead: 8 }
+    }
+  },
+  {
+    id: "divide_and_conquer", name: "Divide and Conquer",
+    parameters: "Split the Battlefield into four quarters, as shown on the Deployment Card. All Mission Markers are Activated.",
+    scoring: "FROM THE START OF THE FIRST ROUND: calculate, per quarter, each Player's Total Supply (only units Wholly within a quarter contribute). Score 1 VP for each quarter where your Total Supply is higher than your Opponent's, plus an additional 2 VP for that quarter if you also Control a Mission Marker within it.",
+    special: null,
+    variants: {
+      standard: { gameLength: 8, supply: null, reinforcement: 2, endLead: 10 },
+      skirmish: { gameLength: 4, supply: null, reinforcement: 1, endLead: 8 }
+    }
+  }
+];
+
+const BATTLEFIELDS = [
+  { id: "gauntlet", name: "Gauntlet", level: "skirmish", size: "36\" x 36\"" },
+  { id: "abandoned_camp", name: "Abandoned Camp", level: "standard", size: "54\" x 36\"" },
+  { id: "typhoon", name: "Typhoon", level: "standard", size: "54\" x 36\"" },
+  { id: "agria_valley", name: "Agria Valley", level: "skirmish", size: "36\" x 36\"" },
+  { id: "breach", name: "Breach", level: "skirmish", size: "36\" x 36\"" },
+  { id: "char_plains", name: "Char Plains", level: "standard", size: "54\" x 36\"" },
+  { id: "acropolis", name: "Acropolis", level: "standard", size: "54\" x 36\"" },
+  { id: "dirt_side", name: "Dirt Side", level: "skirmish", size: "36\" x 36\"" },
+  { id: "proving_grounds", name: "Proving Grounds", level: "standard", size: "54\" x 36\"" },
+  { id: "frontier", name: "Frontier", level: "skirmish", size: "36\" x 36\"" }
+];
+
+function fmtNum(v){ return (v===null || v===undefined) ? '?' : v; }
+
 /* ===================== ÉTAT ===================== */
 
 let state = {
@@ -722,13 +817,15 @@ let state = {
   units: [],
   cards: [],
   overrides: {},  // { "unitId:optIndex": pointsValue, "card:cardId": gasValue }
+  missionIds: [],
+  battlefieldIds: [],
   currentListId: null,
   currentListName: ""
 };
 
 let selectedUpgrades = {}; // { unitId: Set(upgradeIndex) } — transient, not persisted
 let selectedOption = {}; // { unitId: optionIndex } — transient, which squad size is chosen before adding
-let collapsedGroups = {}; // { "unit:<role>": true, tactical: true } — transient UI collapse state, not persisted
+let collapsedGroups = {}; // { "unit:<role>": true, tactical: true, missions: true, battlefields: true } — transient UI collapse state, not persisted
 
 function selectOption(unitId, idx){
   selectedOption[unitId] = (selectedOption[unitId]===idx) ? undefined : idx;
@@ -1155,6 +1252,7 @@ async function confirmSave(){
   const record = {
     id, name, faction: state.faction, minerals: state.minerals,
     factionCardId: state.factionCardId, units: state.units, cards: state.cards, overrides: state.overrides,
+    missionIds: state.missionIds, battlefieldIds: state.battlefieldIds,
     savedAt: new Date().toISOString()
   };
   try{
@@ -1212,6 +1310,8 @@ async function loadList(id){
     state.units = rec.units || [];
     state.cards = rec.cards || [];
     state.overrides = rec.overrides || {};
+    state.missionIds = rec.missionIds || [];
+    state.battlefieldIds = rec.battlefieldIds || [];
     state.currentListId = rec.id;
     state.currentListName = rec.name;
     saveState();
@@ -1236,7 +1336,8 @@ async function deleteList(id, evt){
 
 function newList(){
   state.units = []; state.cards = []; state.factionCardId = null;
-  state.overrides = {}; state.currentListId = null; state.currentListName = "";
+  state.overrides = {}; state.missionIds = []; state.battlefieldIds = [];
+  state.currentListId = null; state.currentListName = "";
   saveState();
   render();
   renderCurrentListName();
@@ -1648,6 +1749,68 @@ function addUnit(unitId, optIndex){
 }
 function removeUnit(idx){ state.units.splice(idx,1); saveState(); render(); }
 
+function toggleMissionsCollapse(){
+  collapsedGroups.missions = !collapsedGroups.missions;
+  renderMissions();
+}
+function toggleMission(id){
+  const i = state.missionIds.indexOf(id);
+  if(i>=0) state.missionIds.splice(i,1); else state.missionIds.push(id);
+  saveState(); renderMissions(); renderRoster();
+}
+function renderMissions(){
+  const caret = document.getElementById('missionsCaret');
+  if(caret) caret.textContent = collapsedGroups.missions ? '▸' : '▾';
+  const box = document.getElementById('missionsList');
+  if(!box) return;
+  if(collapsedGroups.missions){ box.innerHTML = ''; return; }
+  box.innerHTML = MISSIONS.map(m=>{
+    const sel = state.missionIds.includes(m.id);
+    const v = m.variants;
+    return `
+    <div class="card-option ${sel?'selected':''}" onclick="toggleMission('${m.id}')">
+      <div class="co-top">
+        <div class="co-name">${m.name}</div>
+        <div class="co-cp">${sel?'✓ Sélectionnée':''}</div>
+      </div>
+      <div class="co-slots">Standard : Longueur ${fmtNum(v.standard.gameLength)} · Supply ${fmtNum(v.standard.supply)} (+${fmtNum(v.standard.reinforcement)}) · fin anticipée à ${fmtNum(v.standard.endLead)}+ VP<br>Skirmish : Longueur ${fmtNum(v.skirmish.gameLength)} · Supply ${fmtNum(v.skirmish.supply)} (+${fmtNum(v.skirmish.reinforcement)}) · fin anticipée à ${fmtNum(v.skirmish.endLead)}+ VP</div>
+      <div class="co-ability">
+        <strong>Mission Parameters :</strong> ${m.parameters}<br>
+        <strong>Scoring Conditions :</strong> ${m.scoring}
+        ${m.special ? `<br>${m.special}` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBattlefieldsCollapse(){
+  collapsedGroups.battlefields = !collapsedGroups.battlefields;
+  renderBattlefields();
+}
+function toggleBattlefield(id){
+  const i = state.battlefieldIds.indexOf(id);
+  if(i>=0) state.battlefieldIds.splice(i,1); else state.battlefieldIds.push(id);
+  saveState(); renderBattlefields(); renderRoster();
+}
+function renderBattlefields(){
+  const caret = document.getElementById('battlefieldsCaret');
+  if(caret) caret.textContent = collapsedGroups.battlefields ? '▸' : '▾';
+  const box = document.getElementById('battlefieldsList');
+  if(!box) return;
+  if(collapsedGroups.battlefields){ box.innerHTML = ''; return; }
+  box.innerHTML = BATTLEFIELDS.map(b=>{
+    const sel = state.battlefieldIds.includes(b.id);
+    return `
+    <div class="card-option ${sel?'selected':''}" onclick="toggleBattlefield('${b.id}')">
+      <div class="co-top">
+        <div class="co-name">${b.name}</div>
+        <div class="co-cp">${sel?'✓':''}</div>
+      </div>
+      <div class="co-slots">${b.level==='standard'?'Standard Engagement':'Skirmish Level'} · ${b.size}</div>
+    </div>`;
+  }).join('');
+}
+
 function toggleTacticalCollapse(){
   collapsedGroups.tactical = !collapsedGroups.tactical;
   renderTactical();
@@ -1696,11 +1859,20 @@ function removeCard(idx){ state.cards.splice(idx,1); saveState(); render(); }
 function renderRoster(){
   const box = document.getElementById('rosterBox');
   const f = FACTIONS[state.faction];
-  if(state.units.length===0 && state.cards.length===0 && !state.factionCardId){
+  if(state.units.length===0 && state.cards.length===0 && !state.factionCardId && state.missionIds.length===0 && state.battlefieldIds.length===0){
     box.innerHTML = `<div class="roster-empty">Ta liste est vide.<br>Choisis un format, une faction, une carte de faction, puis ajoute des unités.</div>`;
     return;
   }
   let html = '';
+  if(state.missionIds.length || state.battlefieldIds.length){
+    html += `<div class="roster-group-label">Missions &amp; champs de bataille</div>`;
+    if(state.missionIds.length){
+      html += `<div class="roster-item"><div class="ri-main"><div class="ri-name">Missions</div><div class="ri-sub">${state.missionIds.map(id=>{ const m = MISSIONS.find(x=>x.id===id); return m?m.name:id; }).join(', ')}</div></div></div>`;
+    }
+    if(state.battlefieldIds.length){
+      html += `<div class="roster-item"><div class="ri-main"><div class="ri-name">Champs de bataille</div><div class="ri-sub">${state.battlefieldIds.map(id=>{ const b = BATTLEFIELDS.find(x=>x.id===id); return b?b.name:id; }).join(', ')}</div></div></div>`;
+    }
+  }
   if(state.factionCardId){
     const fc = f.factionCards.find(c=>c.id===state.factionCardId);
     html += `<div class="roster-group-label">Carte de faction</div>
@@ -1734,6 +1906,7 @@ function renderRoster(){
 function render(){
   applyFactionTheme();
   renderHud(); renderSizeRow(); renderFactionGrid(); renderFactionCards();
+  renderMissions(); renderBattlefields();
   renderTactical(); renderSlotsPanel(); renderUnits(); renderRoster(); renderCurrentListName();
 }
 
@@ -1746,6 +1919,12 @@ function doExport(){
   if(state.factionCardId){
     const fc = f.factionCards.find(c=>c.id===state.factionCardId);
     lines.push(`Carte de faction : ${fc.name}`);
+  }
+  if(state.missionIds.length){
+    lines.push(`Mission(s) : ${state.missionIds.map(id=>{ const m = MISSIONS.find(x=>x.id===id); return m?m.name:id; }).join(', ')}`);
+  }
+  if(state.battlefieldIds.length){
+    lines.push(`Champ(s) de bataille : ${state.battlefieldIds.map(id=>{ const b = BATTLEFIELDS.find(x=>x.id===id); return b?b.name:id; }).join(', ')}`);
   }
   lines.push(''); lines.push('-- Unités --');
   state.units.forEach(u=> lines.push(`${u.name} — ${u.label} — ${u.points} pts (sup ${u.supply})${u.upgrades && u.upgrades.length ? '\n  ↳ '+u.upgrades.join(', ') : ''}`));
@@ -1803,7 +1982,8 @@ function exportRosterPDF(rec){
     alert("Le module d'export PDF n'a pas pu se charger (vérifie ta connexion) — réessaie dans un instant.");
     return;
   }
-  if(!rec.units || (rec.units.length===0 && rec.cards.length===0 && !rec.factionCardId)){
+  const recUnits = rec.units || [], recCards = rec.cards || [], recMissionIds = rec.missionIds || [], recBattlefieldIds = rec.battlefieldIds || [];
+  if(recUnits.length===0 && recCards.length===0 && !rec.factionCardId && recMissionIds.length===0 && recBattlefieldIds.length===0){
     alert("Cette liste est vide — ajoute au moins une unité avant d'exporter en PDF.");
     return;
   }
@@ -1852,6 +2032,20 @@ function exportRosterPDF(rec){
   doc.text(title, marginX, y);
   y += 24;
 
+  if(recMissionIds.length || recBattlefieldIds.length){
+    sectionTitle('Missions & champs de bataille');
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(60,68,80);
+    if(recMissionIds.length){
+      const txt = 'Missions : ' + recMissionIds.map(id=>{ const m = MISSIONS.find(x=>x.id===id); return m?m.name:id; }).join(', ');
+      doc.splitTextToSize(txt, pageW - marginX*2).forEach(l=>{ ensureSpace(12); doc.text(l, marginX, y); y+=12; });
+    }
+    if(recBattlefieldIds.length){
+      const txt = 'Champs de bataille : ' + recBattlefieldIds.map(id=>{ const b = BATTLEFIELDS.find(x=>x.id===id); return b?b.name:id; }).join(', ');
+      doc.splitTextToSize(txt, pageW - marginX*2).forEach(l=>{ ensureSpace(12); doc.text(l, marginX, y); y+=12; });
+    }
+    y += 8;
+  }
+
   if(rec.factionCardId){
     const fc = f.factionCards.find(c=>c.id===rec.factionCardId);
     if(fc){
@@ -1864,9 +2058,9 @@ function exportRosterPDF(rec){
     }
   }
 
-  if(rec.units && rec.units.length){
-    sectionTitle(`Unités (${rec.units.length})`);
-    rec.units.forEach(u=>{
+  if(recUnits.length){
+    sectionTitle(`Unités (${recUnits.length})`);
+    recUnits.forEach(u=>{
       ensureSpace(24);
       doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
       doc.text(u.name, marginX, y);
@@ -1888,9 +2082,9 @@ function exportRosterPDF(rec){
     });
   }
 
-  if(rec.cards && rec.cards.length){
-    sectionTitle(`Cartes tactiques (${rec.cards.length})`);
-    rec.cards.forEach(c=>{
+  if(recCards.length){
+    sectionTitle(`Cartes tactiques (${recCards.length})`);
+    recCards.forEach(c=>{
       ensureSpace(14);
       doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(20,24,30);
       doc.text(c.name, marginX, y);
@@ -1926,14 +2120,20 @@ function exportRosterPDF(rec){
 }
 
 function doExportPDF(){
-  exportRosterPDF({
-    name: state.currentListName || '',
-    faction: state.faction,
-    minerals: state.minerals,
-    factionCardId: state.factionCardId,
-    units: state.units,
-    cards: state.cards
-  });
+  try{
+    exportRosterPDF({
+      name: state.currentListName || '',
+      faction: state.faction,
+      minerals: state.minerals,
+      factionCardId: state.factionCardId,
+      units: state.units,
+      cards: state.cards,
+      missionIds: state.missionIds,
+      battlefieldIds: state.battlefieldIds
+    });
+  }catch(e){
+    alert("Impossible de générer le PDF." + (e && e.message ? "\n\nDétail technique : " + e.message : ""));
+  }
 }
 
 async function exportSavedListPDF(id, evt){
@@ -1943,12 +2143,13 @@ async function exportSavedListPDF(id, evt){
     if(!r || !r.value) return;
     exportRosterPDF(JSON.parse(r.value));
   }catch(e){
-    alert("Impossible d'exporter cette liste en PDF.");
+    alert("Impossible d'exporter cette liste en PDF." + (e && e.message ? "\n\nDétail technique : " + e.message : ""));
   }
 }
 
 function resetList(){
   state.units = []; state.cards = []; state.factionCardId = null;
+  state.missionIds = []; state.battlefieldIds = [];
   saveState(); render();
   document.getElementById('exportBox').style.display='none';
 }
