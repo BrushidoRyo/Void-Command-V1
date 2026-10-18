@@ -174,6 +174,15 @@ header.title{position:relative;}
 .gallery-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
 .gallery-empty{grid-column:1/-1; text-align:center; color:var(--dim); font-size:13px; padding:30px 10px; border:1px dashed var(--line); border-radius:6px;}
 
+.cardlib-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:10px;}
+.cardlib-item{cursor:pointer;}
+.cardlib-thumb{position:relative; aspect-ratio:5/7; border-radius:6px; overflow:hidden; border:1px solid var(--line); background:var(--panel);}
+.cardlib-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.cardlib-name{font-size:11px; color:var(--text); margin-top:5px; line-height:1.3; text-align:center;}
+.cardlib-variant{font-size:9px; color:var(--dim); text-align:center; text-transform:uppercase; letter-spacing:.5px;}
+.cardlib-sub-title{font-family:var(--font-display); font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin:22px 0 10px;}
+.cardlib-sub-title:first-child{margin-top:0;}
+
 .card-option{ border:1px solid var(--line); background:var(--panel); border-radius:5px; padding:12px; margin-bottom:8px; cursor:pointer; }
 .card-option.selected{border-color:var(--accent); background:var(--panel2);}
 .card-option .co-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;}
@@ -274,6 +283,11 @@ header.title{position:relative;}
         <div class="menu-name">Événements</div>
         <div class="menu-desc">Trouve des tournois et parties près de chez toi, et les ressources communautaires.</div>
       </div>
+      <div class="menu-card active" onclick="showCards()">
+        <div class="menu-icon">🃏</div>
+        <div class="menu-name">Cartes officielles</div>
+        <div class="menu-desc">Consulte les vraies cartes — unités, cartes tactiques, missions et champs de bataille — par faction.</div>
+      </div>
     </div>
     <div class="disclaimer" style="margin-top:26px;">
       Outil communautaire non-officiel, basé sur les fiches et le livret de règles publics d'Archon Studio.
@@ -336,6 +350,29 @@ header.title{position:relative;}
     <div style="margin-top:14px; display:flex; gap:8px;">
       <button onclick="event.stopPropagation(); deleteGalleryImage(currentLightboxId)" style="background:none; border:1px solid var(--warn); color:var(--warn); border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Supprimer</button>
       <button onclick="closeLightbox()" style="background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div id="cardsView" style="display:none;">
+  <header class="title" style="position:relative;">
+    <button id="backToMenuBtn6" onclick="showMenu()" title="Retour au menu">← Menu</button>
+    <h1>Cartes officielles</h1>
+    <div class="sub">Scans des cartes Print &amp; Play — Archon Studio</div>
+  </header>
+  <div class="wrap" style="max-width:640px;">
+    <div class="chiprow" id="cardsGroupRow" style="margin-bottom:18px;"></div>
+    <div id="cardsContent"></div>
+    <div class="disclaimer" style="margin-top:20px;">
+      Images issues des fiches Print &amp; Play officielles de StarCraft: The Miniatures Game (© Archon Studio / © Blizzard Entertainment, Inc.), recadrées depuis les PDF publics. Fournies ici à titre de référence personnelle pour la construction de listes — pas de redistribution commerciale.
+    </div>
+  </div>
+
+  <div id="cardLightbox" onclick="closeCardLightbox()" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(3,6,10,.9); align-items:center; justify-content:center; padding:20px; flex-direction:column;">
+    <img id="cardLightboxImg" style="max-width:100%; max-height:78vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
+    <div id="cardLightboxCaption" style="margin-top:12px; font-family:var(--font-display); font-size:13px; letter-spacing:1px; text-transform:uppercase; color:#fff; text-align:center;"></div>
+    <div style="margin-top:14px; display:flex; gap:8px;">
+      <button onclick="event.stopPropagation(); closeCardLightbox()" style="background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Fermer</button>
     </div>
   </div>
 </div>
@@ -439,7 +476,7 @@ header.title{position:relative;}
     <div class="actions">
       <button class="primary" onclick="openSaveModal()">💾 Sauvegarder</button>
       <button onclick="doExport()">Exporter le texte</button>
-      <button onclick="doExportPDF()">📄 Export PDF</button>
+      <button onclick="doExportPDF(this)">📄 Export PDF</button>
       <button onclick="window.print()">Imprimer</button>
       <button class="danger" onclick="resetList()">Réinitialiser</button>
     </div>
@@ -794,17 +831,23 @@ const MISSIONS = [
 ];
 
 const BATTLEFIELDS = [
-  { id: "gauntlet", name: "Gauntlet", level: "skirmish", size: "36\" x 36\"" },
-  { id: "abandoned_camp", name: "Abandoned Camp", level: "standard", size: "54\" x 36\"" },
+  { id: "gauntlet", name: "Gauntlet", level: "standard", size: "54\" x 36\"" },
+  { id: "abandoned_camp", name: "Abandoned Camp", level: "skirmish", size: "36\" x 36\"" },
   { id: "typhoon", name: "Typhoon", level: "standard", size: "54\" x 36\"" },
   { id: "agria_valley", name: "Agria Valley", level: "skirmish", size: "36\" x 36\"" },
-  { id: "breach", name: "Breach", level: "skirmish", size: "36\" x 36\"" },
-  { id: "char_plains", name: "Char Plains", level: "standard", size: "54\" x 36\"" },
+  { id: "breach", name: "Breach", level: "standard", size: "54\" x 36\"" },
+  { id: "char_plains", name: "Char Plains", level: "skirmish", size: "36\" x 36\"" },
   { id: "acropolis", name: "Acropolis", level: "standard", size: "54\" x 36\"" },
   { id: "dirt_side", name: "Dirt Side", level: "skirmish", size: "36\" x 36\"" },
   { id: "proving_grounds", name: "Proving Grounds", level: "standard", size: "54\" x 36\"" },
   { id: "frontier", name: "Frontier", level: "skirmish", size: "36\" x 36\"" }
 ];
+/* Niveau/taille vérifiés le 2026-10-12 contre les fiches Print & Play officielles
+   (PDF Archon Studio) : Char Plains et Breach étaient inversés dans la saisie
+   précédente (issue de photos), corrigés ici — Char Plains = Skirmish 36x36,
+   Breach = Standard 54x36. Gauntlet/Abandoned Camp étaient déjà corrects. */
+
+const CARD_LIBRARY = {"terran":{"units":[{"file":"terran/units/auto_turret.jpg","name":"Auto Turret"},{"file":"terran/units/goliath.jpg","name":"Goliath"},{"file":"terran/units/holo_decoy.jpg","name":"Holo Decoy"},{"file":"terran/units/jim_raynor.jpg","name":"Jim Raynor"},{"file":"terran/units/marauder.jpg","name":"Marauder"},{"file":"terran/units/marine.jpg","name":"Marine"},{"file":"terran/units/medic.jpg","name":"Medic"},{"file":"terran/units/nova_mode.jpg","name":"Nova Mode"},{"file":"terran/units/nova_stealth_mode.jpg","name":"Nova Stealth Mode"},{"file":"terran/units/point_defense_drone.jpg","name":"Point Defense Drone"},{"file":"terran/units/raven.jpg","name":"Raven"},{"file":"terran/units/raynors_raider_marine.jpg","name":"Raynor's Raider Marine"},{"file":"terran/units/sabotage_drone.jpg","name":"Sabotage Drone"},{"file":"terran/units/siege_tank.jpg","name":"Siege Tank"},{"file":"terran/units/spec_ops_marauder.jpg","name":"Spec Ops Marauder"}],"tactical":[{"file":"terran/tactical/academy_advanced_training.jpg","name":"Academy Advanced Training"},{"file":"terran/tactical/armed_forces_retreat.jpg","name":"Armed Forces Retreat"},{"file":"terran/tactical/armory_vehicle_plating.jpg","name":"Armory Vehicle Plating"},{"file":"terran/tactical/barracks.jpg","name":"Barracks"},{"file":"terran/tactical/barracks_proxy_armed.jpg","name":"Barracks Proxy Armed"},{"file":"terran/tactical/barracks_tech_lab.jpg","name":"Barracks Tech Lab"},{"file":"terran/tactical/dropship_strap_ready.jpg","name":"Dropship Strap Ready"},{"file":"terran/tactical/engineering_bay_infantry.jpg","name":"Engineering Bay Infantry"},{"file":"terran/tactical/factory_field_repair.jpg","name":"Factory Field Repair"},{"file":"terran/tactical/orbital_command_comsat.jpg","name":"Orbital Command Comsat"},{"file":"terran/tactical/raynors_raiders.jpg","name":"Raynor's Raiders"},{"file":"terran/tactical/supply_depot.jpg","name":"Supply Depot"}]},"protoss":{"units":[{"file":"protoss/units/adept.jpg","name":"Adept"},{"file":"protoss/units/artanis.jpg","name":"Artanis"},{"file":"protoss/units/high_templar.jpg","name":"High Templar"},{"file":"protoss/units/praetor_guard_zealot.jpg","name":"Praetor Guard Zealot"},{"file":"protoss/units/pylon.jpg","name":"Pylon"},{"file":"protoss/units/sentry.jpg","name":"Sentry"},{"file":"protoss/units/stalker.jpg","name":"Stalker"},{"file":"protoss/units/tassadar.jpg","name":"Tassadar"},{"file":"protoss/units/twilight_templar_high.jpg","name":"Twilight Templar High"},{"file":"protoss/units/zealot.jpg","name":"Zealot"}],"tactical":[{"file":"protoss/tactical/daelaam_dae_uhl.jpg","name":"Daelaam Dae Uhl"},{"file":"protoss/tactical/forge_armor_tough.jpg","name":"Forge Armor Tough"},{"file":"protoss/tactical/gate_chronoboosted_zealous.jpg","name":"Gate Chronoboosted Zealous"},{"file":"protoss/tactical/gateway_quick_strikes.jpg","name":"Gateway Quick Strikes"},{"file":"protoss/tactical/khalai.jpg","name":"Khalai"},{"file":"protoss/tactical/nexus_ancient_pride.jpg","name":"Nexus Ancient Pride"},{"file":"protoss/tactical/observer_surveillance_hidden.jpg","name":"Observer Surveillance Hidden"},{"file":"protoss/tactical/overcharged_nexus_photon.jpg","name":"Overcharged Nexus Photon"},{"file":"protoss/tactical/power_field_guardian.jpg","name":"Power Field Guardian"},{"file":"protoss/tactical/twilight_council_veil.jpg","name":"Twilight Council Veil"},{"file":"protoss/tactical/warp_gate.jpg","name":"Warp Gate"},{"file":"protoss/tactical/warp_prism.jpg","name":"Warp Prism"}]},"zerg":{"units":[{"file":"zerg/units/bile.jpg","name":"Bile"},{"file":"zerg/units/corpser_roach.jpg","name":"Corpser Roach"},{"file":"zerg/units/defiler_lifesaver.jpg","name":"Defiler Lifesaver"},{"file":"zerg/units/hydralisk.jpg","name":"Hydralisk"},{"file":"zerg/units/kerrigan.jpg","name":"Kerrigan"},{"file":"zerg/units/kerrigan_swarm_raptor.jpg","name":"Kerrigan Swarm Raptor"},{"file":"zerg/units/omega_worm.jpg","name":"Omega Worm"},{"file":"zerg/units/queen.jpg","name":"Queen"},{"file":"zerg/units/raptor_zergling.jpg","name":"Raptor Zergling"},{"file":"zerg/units/ravager_tactician.jpg","name":"Ravager Tactician"},{"file":"zerg/units/roach.jpg","name":"Roach"},{"file":"zerg/units/roachling.jpg","name":"Roachling"},{"file":"zerg/units/swarmling_zergling.jpg","name":"Swarmling Zergling"},{"file":"zerg/units/vile_roach.jpg","name":"Vile Roach"},{"file":"zerg/units/vileling_zergling.jpg","name":"Vileling Zergling"},{"file":"zerg/units/zagara_tactician.jpg","name":"Zagara Tactician"},{"file":"zerg/units/zergling.jpg","name":"Zergling"}],"tactical":[{"file":"zerg/tactical/accelerating_creep.jpg","name":"Accelerating Creep"},{"file":"zerg/tactical/cocoon_spawn_larva.jpg","name":"Cocoon Spawn Larva"},{"file":"zerg/tactical/defiler_mound_poisonous.jpg","name":"Defiler Mound Poisonous"},{"file":"zerg/tactical/evolution_chamber_carapace.jpg","name":"Evolution Chamber Carapace"},{"file":"zerg/tactical/hatchery_lie_wait.jpg","name":"Hatchery Lie Wait"},{"file":"zerg/tactical/hydralisk_den_missile.jpg","name":"Hydralisk Den Missile"},{"file":"zerg/tactical/kerrigans_swarm_creep.jpg","name":"Kerrigan's Swarm Creep"},{"file":"zerg/tactical/lair_predation_instant.jpg","name":"Lair Predation Instant"},{"file":"zerg/tactical/malignant_creep.jpg","name":"Malignant Creep"},{"file":"zerg/tactical/overlord_ventral_sacs.jpg","name":"Overlord Ventral Sacs"},{"file":"zerg/tactical/overseer_oversight_mode.jpg","name":"Overseer Oversight Mode"},{"file":"zerg/tactical/pool.jpg","name":"Pool"},{"file":"zerg/tactical/reactive_creep.jpg","name":"Reactive Creep"},{"file":"zerg/tactical/roach_warren_nasty.jpg","name":"Roach Warren Nasty"},{"file":"zerg/tactical/spawning_pool_feral.jpg","name":"Spawning Pool Feral"},{"file":"zerg/tactical/swarm_brood_instinct.jpg","name":"Swarm Brood Instinct"},{"file":"zerg/tactical/zagaras_swarm.jpg","name":"Zagara's Swarm"}]},"missions":[{"file":"missions/divide_and_conquer_skirmish.jpg","name":"Divide and Conquer","variant":"skirmish"},{"file":"missions/divide_and_conquer_standard.jpg","name":"Divide and Conquer","variant":"standard"},{"file":"missions/frontlines_skirmish.jpg","name":"Frontlines","variant":"skirmish"},{"file":"missions/frontlines_standard.jpg","name":"Frontlines","variant":"standard"},{"file":"missions/gather_the_resources_skirmish.jpg","name":"Gather the Resources","variant":"skirmish"},{"file":"missions/gather_the_resources_standard.jpg","name":"Gather the Resources","variant":"standard"},{"file":"missions/hold_position_skirmish.jpg","name":"Hold Position","variant":"skirmish"},{"file":"missions/hold_position_standard.jpg","name":"Hold Position","variant":"standard"},{"file":"missions/supply_drop_skirmish.jpg","name":"Supply Drop","variant":"skirmish"},{"file":"missions/supply_drop_standard.jpg","name":"Supply Drop","variant":"standard"}],"battlefields":[{"file":"battlefields/abandoned_camp.jpg","name":"Abandoned Camp"},{"file":"battlefields/acropolis.jpg","name":"Acropolis"},{"file":"battlefields/agria_valley.jpg","name":"Agria Valley"},{"file":"battlefields/breach.jpg","name":"Breach"},{"file":"battlefields/char_plains.jpg","name":"Char Plains"},{"file":"battlefields/dirt_side.jpg","name":"Dirt Side"},{"file":"battlefields/frontier.jpg","name":"Frontier"},{"file":"battlefields/gauntlet.jpg","name":"Gauntlet"},{"file":"battlefields/proving_grounds.jpg","name":"Proving Grounds"},{"file":"battlefields/typhoon.jpg","name":"Typhoon"}]};
 
 function fmtNum(v){ return (v===null || v===undefined) ? '?' : v; }
 
@@ -1292,7 +1335,7 @@ async function renderListsView(){
           <div class="ri-name" style="color:${f?f.accent:'#fff'};">${item.name}</div>
           <div class="ri-sub">${f?f.label:item.faction} · ${item.minerals} pts · ${dateStr}</div>
         </div>
-        <button class="pdfbtn" onclick="exportSavedListPDF('${item.id}', event)" title="Exporter cette liste en PDF">PDF</button>
+        <button class="pdfbtn" onclick="exportSavedListPDF('${item.id}', event, this)" title="Exporter cette liste en PDF">PDF</button>
         <button class="rm" onclick="deleteList('${item.id}', event)">×</button>
       </div>
     </div>`;
@@ -2119,8 +2162,54 @@ function exportRosterPDF(rec){
   doc.save(`void-command-${slugify(rec.name || f.label)}.pdf`);
 }
 
-function doExportPDF(){
+/* Le CDN principal (cdnjs) peut être bloqué ou injoignable selon le réseau/appareil
+   (ça a été le cas signalé par Cyrill : "module n'a pas pu se charger"). On retente
+   avec deux CDN de secours avant d'abandonner, et on ne montre l'alerte que si les
+   trois échouent réellement. */
+const JSPDF_SOURCES = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+  'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js'
+];
+let jspdfLoadPromise = null;
+function loadScriptOnce(src){
+  return new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error('échec de chargement : ' + src));
+    document.head.appendChild(s);
+  });
+}
+function ensureJsPDF(){
+  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve(true);
+  if(jspdfLoadPromise) return jspdfLoadPromise;
+  jspdfLoadPromise = (async () => {
+    for(const src of JSPDF_SOURCES){
+      try{
+        await loadScriptOnce(src);
+        if(window.jspdf && window.jspdf.jsPDF) return true;
+      }catch(e){ /* on tente la source suivante */ }
+    }
+    jspdfLoadPromise = null; // permet de retenter plus tard (ex: réseau revenu)
+    return false;
+  })();
+  return jspdfLoadPromise;
+}
+function setPdfBtnBusy(btn, busy){
+  if(!btn) return;
+  if(busy){ btn.dataset.origText = btn.textContent; btn.textContent = '⏳ …'; btn.disabled = true; }
+  else { if(btn.dataset.origText) btn.textContent = btn.dataset.origText; btn.disabled = false; }
+}
+
+async function doExportPDF(btn){
+  setPdfBtnBusy(btn, true);
   try{
+    const ok = await ensureJsPDF();
+    if(!ok){
+      alert("Le module d'export PDF n'a pas pu se charger (réseau ou CDN bloqué) — vérifie ta connexion et réessaie dans un instant.");
+      return;
+    }
     exportRosterPDF({
       name: state.currentListName || '',
       faction: state.faction,
@@ -2133,17 +2222,27 @@ function doExportPDF(){
     });
   }catch(e){
     alert("Impossible de générer le PDF." + (e && e.message ? "\n\nDétail technique : " + e.message : ""));
+  }finally{
+    setPdfBtnBusy(btn, false);
   }
 }
 
-async function exportSavedListPDF(id, evt){
+async function exportSavedListPDF(id, evt, btn){
   if(evt) evt.stopPropagation();
+  setPdfBtnBusy(btn, true);
   try{
+    const ok = await ensureJsPDF();
+    if(!ok){
+      alert("Le module d'export PDF n'a pas pu se charger (réseau ou CDN bloqué) — vérifie ta connexion et réessaie dans un instant.");
+      return;
+    }
     const r = await storageGet('list:'+id);
     if(!r || !r.value) return;
     exportRosterPDF(JSON.parse(r.value));
   }catch(e){
     alert("Impossible d'exporter cette liste en PDF." + (e && e.message ? "\n\nDétail technique : " + e.message : ""));
+  }finally{
+    setPdfBtnBusy(btn, false);
   }
 }
 
@@ -2154,7 +2253,7 @@ function resetList(){
   document.getElementById('exportBox').style.display='none';
 }
 
-const ALL_VIEWS = ['menuView','builderView','listsView','galleryView','eventsView','collectionView'];
+const ALL_VIEWS = ['menuView','builderView','listsView','galleryView','eventsView','collectionView','cardsView'];
 function hideAllViews(){
   ALL_VIEWS.forEach(id=>{ const el = document.getElementById(id); if(el) el.style.display='none'; });
 }
@@ -2183,6 +2282,80 @@ function showEvents(){
   document.getElementById('eventsView').style.display = 'block';
   const el = document.getElementById('eventsLocStatus');
   if(el) el.textContent = '';
+}
+
+/* ===================== CARTES OFFICIELLES (scans Print & Play) ===================== */
+
+const CARDS_BASE = 'cards/';
+let cardsActiveGroup = 'terran';
+const CARDS_GROUPS = [
+  {id:'terran', label:'Terran'},
+  {id:'protoss', label:'Protoss'},
+  {id:'zerg', label:'Zerg'},
+  {id:'scenario', label:'Missions & Terrains'}
+];
+
+function showCards(){
+  hideAllViews();
+  document.getElementById('cardsView').style.display = 'block';
+  renderCardsGroupRow();
+  renderCardsContent();
+}
+
+function renderCardsGroupRow(){
+  const row = document.getElementById('cardsGroupRow');
+  row.innerHTML = CARDS_GROUPS.map(g=>
+    `<div class="chip ${cardsActiveGroup===g.id?'active':''}" onclick="setCardsGroup('${g.id}')">${g.label}</div>`
+  ).join('');
+}
+function setCardsGroup(id){
+  cardsActiveGroup = id;
+  renderCardsGroupRow();
+  renderCardsContent();
+}
+
+function cardlibGrid(items, opts){
+  opts = opts || {};
+  if(!items || !items.length) return '<div class="gallery-empty">Aucune carte dans cette catégorie pour l\'instant.</div>';
+  return '<div class="cardlib-grid">' + items.map(it=>{
+    const caption = opts.showVariant && it.variant
+      ? `<div class="cardlib-variant">${it.variant==='skirmish'?'Skirmish':'Standard'}</div>` : '';
+    return `<div class="cardlib-item" onclick="openCardLightbox('${CARDS_BASE+it.file}','${(it.name||'').replace(/'/g,"\\'")}')">
+      <div class="cardlib-thumb"><img src="${CARDS_BASE+it.file}" loading="lazy" alt="${it.name||''}"></div>
+      <div class="cardlib-name">${it.name||''}</div>
+      ${caption}
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function renderCardsContent(){
+  const el = document.getElementById('cardsContent');
+  if(!el) return;
+  if(cardsActiveGroup === 'scenario'){
+    el.innerHTML = `
+      <div class="cardlib-sub-title">Missions</div>
+      ${cardlibGrid(CARD_LIBRARY.missions, {showVariant:true})}
+      <div class="cardlib-sub-title">Champs de bataille</div>
+      ${cardlibGrid(CARD_LIBRARY.battlefields)}
+    `;
+    return;
+  }
+  const fac = CARD_LIBRARY[cardsActiveGroup] || {units:[], tactical:[]};
+  el.innerHTML = `
+    <div class="cardlib-sub-title">Unités</div>
+    ${cardlibGrid(fac.units)}
+    <div class="cardlib-sub-title">Cartes tactiques &amp; de faction</div>
+    ${cardlibGrid(fac.tactical)}
+  `;
+}
+
+function openCardLightbox(src, caption){
+  document.getElementById('cardLightboxImg').src = src;
+  document.getElementById('cardLightboxCaption').textContent = caption || '';
+  document.getElementById('cardLightbox').style.display = 'flex';
+}
+function closeCardLightbox(){
+  document.getElementById('cardLightbox').style.display = 'none';
 }
 
 /* ===================== MA COLLECTION ===================== */
