@@ -496,8 +496,8 @@ header.title{position:relative;}
   </div>
 
   <div class="disclaimer">
-    Statistiques, capacités et emplacements d'armée : sources officielles Archon Studio (fiches P2P StarCraft-TMG, mai 2026).<br>
-    Coûts en points : mis à jour le 18/10/2026 d'après la table de coûts officielle Archon Studio (StarCraft-TMG-Cost-Table-10.2026, starcraft-tmg.com), qui intègre le dernier patch d'équilibrage. Quelques unités plus récentes (Nova, Raven, Spec Ops Marauder, Tassadar, Twilight Templar, High Templar, Zagara, Vileling, Bile Launcher, Defiler) ne sont pas encore dans la liste, faute de fiche complète. Tous les champs de coût restent éditables, clique dessus pour corriger.
+    Statistiques, capacités et emplacements d'armée : sources officielles Archon Studio (fiches P2P StarCraft-TMG, mai 2026 pour la vague 1 ; vague 2 ajoutée le 30/10/2026).<br>
+    Coûts en points : mis à jour le 18/10/2026 d'après la table de coûts officielle Archon Studio (StarCraft-TMG-Cost-Table-10.2026, starcraft-tmg.com), qui intègre le dernier patch d'équilibrage, puis recoupés avec les coûts confirmés par Cyrill pour Siege Tank, Immortal et Ravager (et leurs améliorations). Nerazim Watchers (Adept) garde ses deux paliers d'achat de la fiche officielle, mais le coût du petit palier (1-2 modèles) reste à confirmer. Quelques unités plus récentes (Nova, Raven, Spec Ops Marauder, Tassadar, Twilight Templar, High Templar, Zagara, Vileling, Bile Launcher, Defiler) ne sont pas encore dans la liste, faute de fiche complète — probablement vague 3. Tous les champs de coût restent éditables, clique dessus pour corriger.
   </div>
 
   <div class="actions" style="margin-top:16px; margin-bottom:30px;">
@@ -519,12 +519,18 @@ header.title{position:relative;}
 <script>
 /* ===================== DONNÉES ===================== */
 /* Sources : fiches "P2P Card Sheets" officielles d'Archon Studio (starcraft-tmg.com/downloads), mai 2026,
-   pour les stats, capacités et emplacements d'armée.
+   pour les stats, capacités et emplacements d'armée (W1). Vague 2 (Siege Tank, Immortal, Ravager, Zeratul,
+   Nerazim Watchers, Factory (Tech Lab), Cocoon) ajoutée/complétée le 30/10/2026 à partir des fiches P2P
+   officielles W2 (Terran/Protoss/Zerg, septembre 2026) transmises par l'utilisateur.
    Coûts en points : mis à jour le 18/10/2026 d'après la table de coûts officielle Archon Studio
    "StarCraft-TMG-Cost-Table-10.2026" (starcraft-tmg.com/downloads) — reflète le dernier patch d'équilibrage
-   (daté du 09/10/2026). Unités publiées depuis mai 2026 mais pas encore ajoutées ici, faute de fiche
-   complète (stats/capacités) : Nova (Stealth/Assault), Raven, Spec Ops Marauder, Tassadar,
-   Twilight Templar, High Templar, Zagara, Vileling, Bile Launcher, Defiler. */
+   (daté du 09/10/2026), puis recoupée/complétée le 30/10/2026 avec les coûts confirmés par l'utilisateur
+   pour Siege Tank, Immortal et Ravager (dont leurs améliorations). Nerazim Watchers (Adept) : la fiche W2
+   montre deux paliers d'achat (1-2 modèles sup 0 / 3-4 modèles sup 1), alors que la table de coûts du
+   10/2026 n'indique qu'une valeur (210 pts, palier 3-4 modèles) — le palier 1-2 modèles reste donc à
+   confirmer (null). Unités publiées depuis mai 2026 mais pas encore ajoutées ici, faute de fiche
+   complète (stats/capacités) — vague 3 très probablement : Nova (Stealth/Assault), Raven, Spec Ops
+   Marauder, Tassadar, Twilight Templar, High Templar, Zagara, Vileling, Bile Launcher, Defiler. */
 
 const FACTIONS = {
   terran: {
@@ -546,7 +552,8 @@ const FACTIONS = {
       {id:"engbay", name:"Engineering Bay", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"La première Arme à Distance de l'unité Biologique active gagne COUP CRITIQUE (1)."},
       {id:"factory", name:"Factory", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"L'unité Mécanique active résout l'effet SOIN (2)."},
       {id:"orbital", name:"Orbital Command", gas:25, cp:1, unique:true, req:"Basique ×1", ability:"Bloque le déploiement ennemi sur un bord de table choisi jusqu'à la fin du Round."},
-      {id:"supplydepot", name:"Supply Depot", gas:40, cp:1, unique:true, req:"Basique ×1 · Héros ×1 · Élite ×1", ability:"La Valeur de Supply de l'unité active est améliorée de 1 pour le contrôle des marqueurs de mission."}
+      {id:"supplydepot", name:"Supply Depot", gas:40, cp:1, unique:true, req:"Basique ×1 · Héros ×1 · Élite ×1", ability:"La Valeur de Supply de l'unité active est améliorée de 1 pour le contrôle des marqueurs de mission."},
+      {id:"factory_techlab", name:"Factory (Tech Lab)", gas:null, cp:1, unique:true, req:"Élite ×2", ability:"Vague 2 (coût en Gaz à confirmer). Field Repair — l'unité Mécanique active résout l'effet SOIN (2) / Pound 'Em Flat! — si l'unité Mécanique active a le statut Stationnaire, sa première Arme à Distance gagne PRÉCISION (2)."}
     ],
     units:[
       {id:"marine", name:"Marine", role:"Basique", traits:"Biologique · Léger · Sol",
@@ -590,7 +597,7 @@ const FACTIONS = {
       {id:"siege_tank", name:"Siege Tank", role:"Élite", traits:"Blindé · Mécanique · Sol",
         stats:{speed:"7", evade:"—", armor:"5+", hp:14, size:2}, range:"12-18\"",
         options:[{label:"1 modèle (sup 2)", points:220, supply:2}],
-        upgrades:["Mode Transformation","Coordinated Strike","Shaped Blast","Smart Shells"],
+        upgrades:["Mode Transformation +20 pts","Coordinated Strike +20 pts","Shaped Blast +10 pts","Smart Shells +10 pts"],
         innate:["Large","Heavy Plating","Indomitable","Aftershock Rounds","Point Blank","Devastating Charge"]}
     ]
   },
@@ -659,13 +666,14 @@ const FACTIONS = {
       {id:"nerazim_watchers", name:"Nerazim Watchers (Adept)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol — Nerazim",
         stats:{speed:"5/8", evade:"5+", armor:"5+", hp:3, shield:2, size:2}, range:"8\"",
         options:[
-          {label:"4 modèles (sup 1)", points:210, supply:1}
+          {label:"1-2 modèles (sup 0)", points:null, supply:0},
+          {label:"3-4 modèles (sup 1)", points:210, supply:1}
         ], upgrades:[],
         innate:["Path of Shadows","Nerazim Farsight","Psionic Transfer"]},
       {id:"immortal", name:"Immortal", role:"Élite", traits:"Blindé · Mécanique · Sol",
         stats:{speed:"7", evade:"—", armor:"4+", hp:8, shield:6, size:3}, range:"12\"",
         options:[{label:"1 modèle (sup 2)", points:280, supply:2}],
-        upgrades:["Phase Disruptors (remplace les Photon Disruptors)"],
+        upgrades:["Shield Overcharge +20 pts","Left Phase Disruptor +20 pts","Right Phase Disruptor +20 pts","Fury Unyielding +20 pts","For the Ancients +20 pts"],
         innate:["Improved Barrier","Indomitable","Devastating Charge"]},
       {id:"pylon", name:"Pylon", role:"Autre", traits:"Blindé · Sol · Structure",
         stats:{speed:"—", evade:"—", armor:"5+", hp:8, shield:2, size:3}, range:"—",
@@ -695,7 +703,8 @@ const FACTIONS = {
       {id:"overseer", name:"Overseer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Pneumatized Carapace (rejet de D6 sur distance de Charge) / Oversight Mode (retire CACHÉ ennemi)."},
       {id:"overlord", name:"Overlord", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Ventral Sacs — réserve un renfort au sol en fin de Round."},
       {id:"accelcreep", name:"Accelerating Creep", gas:0, cp:0, unique:true, req:"Carte de Terrain Rampant (choisie via Zerg Swarm)", ability:"Speed on Creep — +1 Vitesse sur Rampant / Living Glob of Tissue (Tumeurs indestructibles au déplacement) / Creep Removal (retire le Tumeur si un ennemi termine une action à 1\")."},
-      {id:"malignantcreep", name:"Malignant Creep", gas:10, cp:0, unique:true, req:"Carte de Terrain Rampant (Kerrigan's Swarm uniquement)", ability:"Malevolent Matriarch — bonus de Charge sur Rampant / Living Glob of Tissue / Creep Removal."}
+      {id:"malignantcreep", name:"Malignant Creep", gas:10, cp:0, unique:true, req:"Carte de Terrain Rampant (Kerrigan's Swarm uniquement)", ability:"Malevolent Matriarch — bonus de Charge sur Rampant / Living Glob of Tissue / Creep Removal."},
+      {id:"cocoon", name:"Cocoon", gas:null, cp:null, unique:true, req:"Soutien ×1", ability:"Vague 2 (coûts en Gaz/PC à confirmer). Spawn Larva — l'unité Biologique amie non-Unique de Taille 1 active résout l'effet RESPAWN (2) / Ravager Morph (une fois par partie) — l'unité Roach amie active effectue METAMORPHOSE (Ravager) 1."}
     ],
     units:[
       {id:"zergling", name:"Zergling", role:"Basique", traits:"Biologique · Léger · Sol",
@@ -765,7 +774,7 @@ const FACTIONS = {
         options:[
           {label:"1 modèle (sup 1)", points:160, supply:1},
           {label:"2 modèles (sup 2)", points:270, supply:2}
-        ], upgrades:[],
+        ], upgrades:["Bloated Bile Ducts +20/+40 pts (petite/grande escouade)","Burrow Ambush +20/+40 pts (petite/grande escouade)","Potent Bile +20/+40 pts (petite/grande escouade)"],
         innate:["Squadron","Deep Tunnel","Corrosive Bile","Devastating Charge"]}
     ]
   }
@@ -1167,15 +1176,21 @@ const UPGRADE_DESCRIPTIONS = {
   "Shadow Strike": "ACTIF (1 PE) — Toutes les unités ennemies Engagées avec cette unité subissent HITS 4 (1).",
   "Nerazim Farsight": "PASSIF — Tant que des unités ennemies sont à moins de 6\" d'un jeton Ombre, elles perdent le statut CACHÉ.",
   "Improved Barrier": "RÉACTION (0 PE) — À utiliser quand cette unité est sélectionnée comme cible d'une attaque. Si elle a le statut Bouclier, la caractéristique Dégâts de l'arme attaquante est traitée comme 1 maximum pour cette attaque.",
-  "Phase Disruptors (remplace les Photon Disruptors)": "Amélioration (coût à confirmer) — Remplace les deux Photon Disruptors par les Phase Disruptors (RNG 12, Cible Sol, RoA 4, Touche 3+, Surge Blindé, S Dice D3, Dégâts 1, PERCE Blindé (3) ; l'arme droite gagne aussi ARME LATÉRALE). Inclut aussi : Fury Unyielding (passif — tant que cette unité est à moins de 3\" d'un Marqueur de Mission, ses Armes à Distance gagnent COUP CRITIQUE (1) contre une cible ennemie également à moins de 3\" de ce marqueur) et For the Ancients (passif — quand cette unité effectue une Attaque à Distance sur une cible à plus de 8\", l'arme attaquante gagne PRÉCISION (1)).",
+  "Shield Overcharge": "Amélioration RÉACTION (1 PE, 20 pts) — À utiliser avant que cette unité résolve un Jet d'Armure. Si elle a le statut Bouclier, elle gagne DUR (2) pour ce jet.",
+  "Left Phase Disruptor": "Amélioration (20 pts) — Remplace le Left Photon Disruptor par le Left Phase Disruptor (RNG 12, Cible Sol, RoA 4, Touche 3+, Surge Blindé, S Dice D3, Dégâts 1, PERCE Blindé (3)).",
+  "Right Phase Disruptor": "Amélioration (20 pts) — Remplace le Right Photon Disruptor par le Right Phase Disruptor (RNG 12, Cible Sol, RoA 4, Touche 3+, Surge Blindé, S Dice D3, Dégâts 1, PERCE Blindé (3), ARME LATÉRALE).",
+  "Fury Unyielding": "Amélioration PASSIVE (20 pts) — Tant que cette unité est à moins de 3\" d'un Marqueur de Mission, ses Armes à Distance gagnent COUP CRITIQUE (1) contre une cible ennemie également à moins de 3\" de ce même marqueur.",
+  "For the Ancients": "Amélioration PASSIVE (20 pts) — Quand cette unité effectue une Attaque à Distance sur une cible à plus de 8\", l'arme attaquante gagne PRÉCISION (1).",
+  "Bloated Bile Ducts": "Amélioration PASSIVE (20/40 pts selon la taille d'escouade) — Augmente la zone d'effet de la capacité Corrosive Bile de cette unité de 2\".",
+  "Potent Bile": "Amélioration PASSIVE (20/40 pts selon la taille d'escouade) — Avant qu'une unité ennemie résolve un Jet d'Armure contre les HITS générés par Corrosive Bile de cette unité, cette unité ennemie subit DEBUFF Armure (1).",
   "Large": "PASSIF — Quand le Modèle Meneur de cette unité se déplace, il ne peut pas passer par des espaces physiques de moins de 3\" de large, quelle que soit sa Taille. Si le trajet du Modèle Meneur traverse, ou si un modèle de cette unité termine son mouvement sur un élément de Terrain Infranchissable de Taille 0 ou 1 (hors Jetons), cet élément est immédiatement retiré du jeu.",
   "Heavy Plating": "PASSIF — Quand cette unité résout un Jet d'Armure, elle gagne DUR (1), à condition de ne pas avoir actuellement le statut MODE SIÈGE.",
   "Aftershock Rounds": "PASSIF — Tant que cette unité a le statut MODE SIÈGE, sa caractéristique Dégâts est traitée comme égale à la caractéristique Taille de l'unité ciblée actuelle (minimum 1).",
   "Point Blank": "PASSIF — Tant que cette unité a le statut MODE SIÈGE, elle ne peut pas cibler d'unités ennemies avec lesquelles elle est Engagée.",
-  "Mode Transformation": "Amélioration ACTIVE (1 PC, coût en points à confirmer) — L'unité active gagne ou perd le statut MODE SIÈGE. Tant qu'elle a ce statut, sa caractéristique Taille est traitée comme 3.",
-  "Coordinated Strike": "Amélioration ACTIVE (0 PC, coût en points à confirmer) — Cible une unité amie Non-Engagée sur le champ de bataille (Ligne de Vue non requise). Quand cette unité résout une Attaque à Distance avec le Shock Cannon ce Round, elle peut ignorer la Portée standard de l'arme si la cible ennemie est à moins de 8\" d'un modèle de l'unité amie sélectionnée et visible de lui, en traitant ce modèle comme le modèle qui agit.",
-  "Shaped Blast": "Amélioration RÉACTION (0 PC, une fois par partie, coût en points à confirmer) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne PRÉCISION et VERROUILLÉ (4).",
-  "Smart Shells": "Amélioration RÉACTION (0 PC, une fois par partie, coût en points à confirmer) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne TIR INDIRECT et LONGUE PORTÉE (24\").",
+  "Mode Transformation": "Amélioration ACTIVE (1 PC, 20 pts) — L'unité active gagne ou perd le statut MODE SIÈGE. Tant qu'elle a ce statut, sa caractéristique Taille est traitée comme 3.",
+  "Coordinated Strike": "Amélioration ACTIVE (0 PC, 20 pts) — Cible une unité amie Non-Engagée sur le champ de bataille (Ligne de Vue non requise). Quand cette unité résout une Attaque à Distance avec le Shock Cannon ce Round, elle peut ignorer la Portée standard de l'arme si la cible ennemie est à moins de 8\" d'un modèle de l'unité amie sélectionnée et visible de lui, en traitant ce modèle comme le modèle qui agit.",
+  "Shaped Blast": "Amélioration RÉACTION (0 PC, une fois par partie, 10 pts) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne PRÉCISION et VERROUILLÉ (4).",
+  "Smart Shells": "Amélioration RÉACTION (0 PC, une fois par partie, 10 pts) — Quand cette unité déclare une action d'Attaque à Distance, si elle a le statut MODE SIÈGE, son arme gagne TIR INDIRECT et LONGUE PORTÉE (24\").",
   "Deep Tunnel": "ACTIF (1 BM) — Place un jeton Terrier de Ravager entièrement à moins de 12\" de n'importe quel modèle de cette unité. En fin de Round, le joueur contrôlant peut placer tous les modèles de cette unité en Cohérence en traitant ce jeton comme le Modèle Meneur. Le jeton a DÉPLACEMENT.",
   "Corrosive Bile": "ACTIF (1 BM) — Pour chaque modèle de cette unité, place un jeton Bile Corrosive sur le champ de bataille à moins de 14\" de ce modèle. Ces jetons ne sont pas retirés si cette unité est détruite. En fin de Phase d'Assaut, chaque unité subit HITS 5 (1) pour chaque jeton Bile Corrosive à moins de 1\" d'elle, puis tous les jetons de cette unité sont retirés du champ de bataille."
 };
