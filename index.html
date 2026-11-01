@@ -364,14 +364,15 @@ header.title{position:relative;}
     <div class="chiprow" id="cardsGroupRow" style="margin-bottom:18px;"></div>
     <div id="cardsContent"></div>
     <div class="disclaimer" style="margin-top:20px;">
-      Images issues des fiches Print &amp; Play officielles de StarCraft: The Miniatures Game (© Archon Studio / © Blizzard Entertainment, Inc.), recadrées depuis les PDF publics. Fournies ici à titre de référence personnelle pour la construction de listes — pas de redistribution commerciale.
+      Images issues des fiches Print &amp; Play officielles de StarCraft: The Miniatures Game (© Archon Studio / © Blizzard Entertainment, Inc.), recadrées depuis les PDF publics. Fournies ici à titre de référence personnelle pour la construction de listes — pas de redistribution commerciale. Clique sur une carte pour l'agrandir ; un bouton "Voir le verso" apparaît quand l'image du dos de la carte est disponible (ajoutées progressivement).
     </div>
   </div>
 
   <div id="cardLightbox" onclick="closeCardLightbox()" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(3,6,10,.9); align-items:center; justify-content:center; padding:20px; flex-direction:column;">
-    <img id="cardLightboxImg" style="max-width:100%; max-height:78vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
+    <img id="cardLightboxImg" onerror="handleCardLightboxImgError()" style="max-width:100%; max-height:78vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
     <div id="cardLightboxCaption" style="margin-top:12px; font-family:var(--font-display); font-size:13px; letter-spacing:1px; text-transform:uppercase; color:#fff; text-align:center;"></div>
     <div style="margin-top:14px; display:flex; gap:8px;">
+      <button id="cardLightboxFlipBtn" onclick="event.stopPropagation(); flipCardLightbox()" style="display:none; background:#16222e; color:#fff; border:1px solid var(--accent); border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">🔄 Voir le verso</button>
       <button onclick="event.stopPropagation(); closeCardLightbox()" style="background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Fermer</button>
     </div>
   </div>
@@ -2496,14 +2497,20 @@ function setCardsGroup(id){
   renderCardsContent();
 }
 
+function cardBackFile(file){
+  return file.replace(/(\.[a-zA-Z0-9]+)$/, '_back$1');
+}
+
 function cardlibGrid(items, opts){
   opts = opts || {};
   if(!items || !items.length) return '<div class="gallery-empty">Aucune carte dans cette catégorie pour l\'instant.</div>';
   return '<div class="cardlib-grid">' + items.map(it=>{
     const caption = opts.showVariant && it.variant
       ? `<div class="cardlib-variant">${it.variant==='skirmish'?'Skirmish':'Standard'}</div>` : '';
-    return `<div class="cardlib-item" onclick="openCardLightbox('${CARDS_BASE+it.file}','${(it.name||'').replace(/'/g,"\\'")}')">
-      <div class="cardlib-thumb"><img src="${CARDS_BASE+it.file}" loading="lazy" alt="${it.name||''}"></div>
+    const frontSrc = CARDS_BASE+it.file;
+    const backSrc = CARDS_BASE+cardBackFile(it.file);
+    return `<div class="cardlib-item" onclick="openCardLightbox('${frontSrc}','${backSrc}','${(it.name||'').replace(/'/g,"\\'")}')">
+      <div class="cardlib-thumb"><img src="${frontSrc}" loading="lazy" alt="${it.name||''}"></div>
       <div class="cardlib-name">${it.name||''}</div>
       ${caption}
     </div>`;
@@ -2531,10 +2538,42 @@ function renderCardsContent(){
   `;
 }
 
-function openCardLightbox(src, caption){
-  document.getElementById('cardLightboxImg').src = src;
+let cardLightboxState = {front:'', back:'', showingBack:false, caption:'', backMissing:false};
+
+function openCardLightbox(frontSrc, backSrc, caption){
+  cardLightboxState = {front:frontSrc, back:backSrc, showingBack:false, caption:caption||'', backMissing:false};
+  document.getElementById('cardLightboxImg').src = frontSrc;
   document.getElementById('cardLightboxCaption').textContent = caption || '';
+  const flipBtn = document.getElementById('cardLightboxFlipBtn');
+  flipBtn.style.display = backSrc ? 'inline-block' : 'none';
+  flipBtn.textContent = '🔄 Voir le verso';
   document.getElementById('cardLightbox').style.display = 'flex';
+}
+function flipCardLightbox(){
+  if(!cardLightboxState.back || cardLightboxState.backMissing) return;
+  cardLightboxState.showingBack = !cardLightboxState.showingBack;
+  const img = document.getElementById('cardLightboxImg');
+  const btn = document.getElementById('cardLightboxFlipBtn');
+  const cap = document.getElementById('cardLightboxCaption');
+  if(cardLightboxState.showingBack){
+    img.src = cardLightboxState.back;
+    btn.textContent = '🔄 Voir le recto';
+    cap.textContent = (cardLightboxState.caption || '') + ' — Verso';
+  } else {
+    img.src = cardLightboxState.front;
+    btn.textContent = '🔄 Voir le verso';
+    cap.textContent = cardLightboxState.caption || '';
+  }
+}
+function handleCardLightboxImgError(){
+  // Le verso n'existe pas encore pour cette carte : on revient au recto sans casser l'affichage.
+  if(cardLightboxState.showingBack){
+    cardLightboxState.showingBack = false;
+    cardLightboxState.backMissing = true;
+    document.getElementById('cardLightboxImg').src = cardLightboxState.front;
+    document.getElementById('cardLightboxFlipBtn').style.display = 'none';
+    document.getElementById('cardLightboxCaption').textContent = (cardLightboxState.caption || '') + ' — verso pas encore disponible';
+  }
 }
 function closeCardLightbox(){
   document.getElementById('cardLightbox').style.display = 'none';
