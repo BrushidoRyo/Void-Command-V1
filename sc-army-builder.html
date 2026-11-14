@@ -134,6 +134,9 @@ section{margin-top:26px;}
 .slot-chip.full .slot-count{color:var(--warn);}
 .kw{color:var(--accent); text-decoration:underline dotted; cursor:pointer;}
 .kw:hover{color:#fff;}
+.card-link{cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; text-decoration-color:var(--accent);}
+.card-link:hover{color:var(--accent);}
+.card-link .card-link-icon{font-size:11px; margin-left:4px; opacity:.75; text-decoration:none; display:inline-block;}
 #kwModal{
   display:none; position:fixed; inset:0; z-index:100; background:rgba(3,6,10,.75);
   align-items:center; justify-content:center; padding:20px;
@@ -364,18 +367,22 @@ header.title{position:relative;}
     <div class="chiprow" id="cardsGroupRow" style="margin-bottom:18px;"></div>
     <div id="cardsContent"></div>
     <div class="disclaimer" style="margin-top:20px;">
-      Images issues des fiches Print &amp; Play officielles de StarCraft: The Miniatures Game (© Archon Studio / © Blizzard Entertainment, Inc.), recadrées depuis les PDF publics. Fournies ici à titre de référence personnelle pour la construction de listes — pas de redistribution commerciale.
+      Images issues des fiches Print &amp; Play officielles de StarCraft: The Miniatures Game (© Archon Studio / © Blizzard Entertainment, Inc.), recadrées depuis les PDF publics. Fournies ici à titre de référence personnelle pour la construction de listes — pas de redistribution commerciale. Clique sur une carte pour l'agrandir ; un bouton "Voir le verso" apparaît quand l'image du dos de la carte est disponible (ajoutées progressivement).
     </div>
   </div>
 
-  <div id="cardLightbox" onclick="closeCardLightbox()" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(3,6,10,.9); align-items:center; justify-content:center; padding:20px; flex-direction:column;">
-    <img id="cardLightboxImg" style="max-width:100%; max-height:78vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
+</div>
+
+<!-- Visionneuse de carte : placée hors de #cardsView pour être utilisable aussi depuis l'Army Builder -->
+<div id="cardLightbox" onclick="closeCardLightbox()" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(3,6,10,.9); align-items:center; justify-content:center; padding:20px; flex-direction:column;">
+    <img id="cardLightboxImg" onerror="handleCardLightboxImgError()" style="max-width:100%; max-height:78vh; border-radius:6px; box-shadow:0 0 40px rgba(0,0,0,.6);">
     <div id="cardLightboxCaption" style="margin-top:12px; font-family:var(--font-display); font-size:13px; letter-spacing:1px; text-transform:uppercase; color:#fff; text-align:center;"></div>
     <div style="margin-top:14px; display:flex; gap:8px;">
+      <button id="cardLightboxFlipBtn" onclick="event.stopPropagation(); flipCardLightbox()" style="display:none; background:#16222e; color:#fff; border:1px solid var(--accent); border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">🔄 Voir le verso</button>
       <button onclick="event.stopPropagation(); closeCardLightbox()" style="background:var(--accent); color:#04101c; border:none; border-radius:4px; padding:8px 16px; font-family:var(--font-display); font-size:12px; cursor:pointer;">Fermer</button>
     </div>
   </div>
-</div>
+
 
 <div id="eventsView" style="display:none;">
   <header class="title" style="position:relative;">
@@ -496,8 +503,9 @@ header.title{position:relative;}
   </div>
 
   <div class="disclaimer">
+    Astuce : touche le nom d'une unité, d'une carte, d'une mission ou d'un champ de bataille marqué 🃏 pour afficher la carte originale (recto/verso) et lire son texte officiel.<br>
     Statistiques, capacités et emplacements d'armée : sources officielles Archon Studio (fiches P2P StarCraft-TMG, mai 2026 pour la vague 1 ; vague 2 ajoutée le 30/10/2026 ; vague 3 Terran, Protoss et Zerg ajoutées le 30/10/2026).<br>
-    Coûts en points : mis à jour le 18/10/2026 d'après la table de coûts officielle Archon Studio (StarCraft-TMG-Cost-Table-10.2026, starcraft-tmg.com), qui intègre le dernier patch d'équilibrage, puis recoupés avec les coûts confirmés par Cyrill pour Siege Tank, Immortal, Ravager, Vanadium Plating, Factory (Tech Lab), Templar Archives, High Templar, Twilight Templar (High Templar), Zagara, Defiler, Bile Launcher, Defiler Mound, Vileling (Zergling), Void Seeker (40 Gaz), Robotics Support Bay (30 Gaz, anciennement listée sous le nom "Robotics Facility"), Cocoon (30 Gaz, 0 BM — ne coûte pas de BM, confirmé) et Reactive Creep (10 Gaz) (et leurs améliorations). Nerazim Watchers (Adept) n'a pas de coût pour le palier 1-2 modèles — c'est une donnée de jeu sans option d'achat propre (confirmé), seul le palier 3-4 modèles (sup 1, 210 pts) est proposé. Spec Ops Marauder garde ses deux paliers d'achat de la fiche officielle, mais le coût du petit palier (modèle seul, sup 0) reste lui à confirmer. Nova (Assault Mode) reprend les caractéristiques de Nova (Stealth Mode) — même modèle physique, non confirmées séparément sur sa fiche. Zagara's Swarm (carte de faction) n'a pas de prérequis de héros (confirmé). Vileling (Zergling) est une unité exclusive à Zagara's Swarm, achetable uniquement par escouade complète de 18 modèles (sup 2) — aucun coût pour une escouade plus petite. Tous les champs de coût restent éditables, clique dessus pour corriger.
+    Coûts en points et en Gaz : alignés le 14/11/2026 sur la table de coûts officielle Archon Studio (StarCraft-TMG-Cost-Table-10.2026, patch du 09/10/2026, starcraft-tmg.com), suivie à l'identique sur décision de Cyrill — y compris les améliorations des grandes escouades, les cartes tactiques, High Templar (130 pts pour 2 modèles) et Robotics Facility (35 Gaz, nom officiel). Les coûts de la Vague 3 (Zagara, Defiler, Bile Launcher, Defiler Mound, Vileling (Zergling), Cocoon, Reactive Creep) correspondent à cette même table. Paliers non achetables (données de jeu sans coût propre, retirés des options) : 1 modèle des High Templar/Twilight Templar, 1-2 modèles des Nerazim Watchers, 1-6 modèles des Vileling, et 1 modèle du Spec Ops Marauder (la table ne propose que 2 modèles à 230 pts). Nova (Assault Mode) reprend les caractéristiques de Nova (Stealth Mode) — même modèle physique, non confirmées séparément sur sa fiche. Zagara's Swarm (carte de faction) n'a pas de prérequis de héros (confirmé). Vileling (Zergling) est une unité exclusive à Zagara's Swarm. Tous les champs de coût restent éditables, clique dessus pour corriger.
   </div>
 
   <div class="actions" style="margin-top:16px; margin-bottom:30px;">
@@ -529,23 +537,31 @@ header.title{position:relative;}
    fiches P2P officielles W3 Terran, Protoss et Zerg (septembre 2026) transmises par l'utilisateur.
    Coûts en points : mis à jour le 18/10/2026 d'après la table de coûts officielle Archon Studio
    "StarCraft-TMG-Cost-Table-10.2026" (starcraft-tmg.com/downloads) — reflète le dernier patch d'équilibrage
-   (daté du 09/10/2026), puis recoupée/complétée le 30/10/2026 avec les coûts confirmés par l'utilisateur
+   (daté du 09/10/2026), puis recoupée/complétée le 30/10/2026 avec les coûts confirmés par l'utilisateur.
+   14/11/2026 : réalignement complet sur cette table (PDF transmis par l'utilisateur), qui fait foi sur
+   décision de l'utilisateur : améliorations grandes escouades Marine/Marauder/Raptor/Hydralisk, Rocket
+   Launcher (Marine, 40 pts), C-14 Rifle (Jim Raynor, 0 pt), Stabilizer Medpacks 20, Glial Reconstitution 10,
+   Hallucination 20, Solid-Field Projectors 10, High Templar 130 pts/2 modèles, Gaz des cartes tactiques
+   (Barracks 30, Barracks (Tech Lab) 40, Academy 40, Dropship 35, Six Pool 35, Hydralisk Den 30, Evolution
+   Chamber 25, Nexus 40, Twilight Council 40, Robotics Facility 35 — nom officiel rétabli), Spec Ops Marauder
+   réduit au seul palier 2 modèles/230 pts. Historique ci-dessous conservé pour mémoire. Coûts confirmés le
+   30/10/2026 par l'utilisateur
    pour Siege Tank, Immortal, Ravager, Vanadium Plating, Factory (Tech Lab) (40 Gaz), Templar Archives
-   (40 Gaz), Templar Caste (carte de faction, jamais de coût en Gaz), High Templar (120 pts/2 modèles,
+   (40 Gaz), Templar Caste (carte de faction, jamais de coût en Gaz), High Templar (130 pts/2 modèles,
    200 pts/3-4 modèles), Twilight Templar (High Templar) (230 pts/2 modèles), Zagara (250 pts), Defiler
    (130 pts, améliorations Burrow Ambush/Plague/Cancerous Bite à 20 pts chacune), Bile Launcher (150 pts),
    Defiler Mound (35 Gaz) et Vileling (Zergling) (180 pts pour 18 modèles/sup 2 uniquement — unité "Strict",
    aucun coût ni palier pour un effectif moindre) (et leurs améliorations). Broodmother (Zagara) est une
    capacité innée sans coût en points, confirmé par l'utilisateur malgré le bandeau "UPGRADE" générique
-   du gabarit de carte. Void Seeker (40 Gaz) et Robotics Support Bay (30 Gaz — renommée depuis "Robotics
-   Facility" sur confirmation de l'utilisateur) complétés le 30/10/2026. Cocoon (30 Gaz, 0 BM — confirmé
+   du gabarit de carte. Void Seeker (40 Gaz) et Robotics Facility (35 Gaz — brièvement renommée "Robotics
+   Support Bay" à 30 Gaz, revenue au nom et coût officiels le 14/11/2026) complétés le 30/10/2026. Cocoon (30 Gaz, 0 BM — confirmé
    par l'utilisateur, cette carte ne coûte pas de BM) et Reactive Creep (10 Gaz) complétés le 30/10/2026.
    Pour High Templar et Twilight Templar (High Templar), le palier à 1 modèle/sup 0 visible sur la fiche
    est une donnée de jeu (état dégradé de l'unité) sans coût d'achat propre — non proposé comme option
    d'achat ici, sur confirmation de l'utilisateur. Nerazim Watchers (Adept) suit le même principe : le
    palier 1-2 modèles n'a pas de coût d'achat propre (confirmé) — seul le palier 3-4 modèles (sup 1,
-   210 pts) est proposé. Spec Ops Marauder garde ses deux paliers d'achat de la fiche officielle, mais le
-   coût du petit palier (modèle seul, sup 0) reste lui à confirmer (230 pts ne couvrant que le palier sup 1).
+   210 pts) est proposé. Spec Ops Marauder : seul le palier 2 modèles/sup 1 (230 pts) est achetable selon la
+   table officielle ; le palier 1 modèle/sup 0 de la fiche est une donnée de jeu.
    Nova (Assault Mode) : ses caractéristiques (Vitesse/Armure/Esquive/PV/Taille) ne sont pas dans le texte
    extrait de sa fiche (rendues en image) ; reprises à l'identique de Nova (Stealth Mode), même modèle
    physique — à confirmer.
@@ -567,12 +583,12 @@ const FACTIONS = {
         ability:"Vague 3. Pas de prérequis de héros (confirmé). Griffin Support — place un Sabotage Drone ami à moins de 12\" d'une unité amie, à plus de 1\" de tout modèle ennemi ; retire cette unité en fin de Round / Mark for Death — cible une unité ennemie sur la table ; la première Arme de Corps-à-corps ou à Distance utilisée par une unité amie l'attaquant gagne COUP CRITIQUE (1) et PRÉCISION (1)."}
     ],
     tacticalCards:[
-      {id:"academy", name:"Academy", gas:35, cp:1, unique:false, req:"Soutien ×2", ability:"Une fois par Round, quand une unité de Soutien amie active une Capacité Spéciale à coût PC, réduisez son coût de 1."},
+      {id:"academy", name:"Academy", gas:40, cp:1, unique:false, req:"Soutien ×2", ability:"Une fois par Round, quand une unité de Soutien amie active une Capacité Spéciale à coût PC, réduisez son coût de 1."},
       {id:"armory", name:"Armory", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"La première Arme à Distance de l'unité Mécanique active gagne COUP CRITIQUE (1)."},
-      {id:"barracks", name:"Barracks", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"L'unité Biologique active effectue une action de Déplacement de 2\", hors limite d'actions."},
+      {id:"barracks", name:"Barracks", gas:30, cp:1, unique:false, req:"Basique ×1", ability:"L'unité Biologique active effectue une action de Déplacement de 2\", hors limite d'actions."},
       {id:"barracks_proxy", name:"Barracks (Proxy)", gas:40, cp:2, unique:true, req:"Basique ×2", ability:"Déploiement Biologique depuis un bord de table non-Entrée, à 10\"+ de l'ennemi."},
-      {id:"barracks_techlab", name:"Barracks (Tech Lab)", gas:45, cp:2, unique:true, req:"Basique ×1 · Élite ×1", ability:"L'unité Biologique active effectue un Déplacement de 2\" + son arme gagne ANTI-ESQUIVE (1)."},
-      {id:"dropship", name:"Dropship", gas:40, cp:1, unique:true, req:"Basique ×1 · Soutien ×1", ability:"Renvoie une unité au sol amie non-engagée en Réserve au lieu d'une action."},
+      {id:"barracks_techlab", name:"Barracks (Tech Lab)", gas:40, cp:2, unique:true, req:"Basique ×1 · Élite ×1", ability:"L'unité Biologique active effectue un Déplacement de 2\" + son arme gagne ANTI-ESQUIVE (1)."},
+      {id:"dropship", name:"Dropship", gas:35, cp:1, unique:true, req:"Basique ×1 · Soutien ×1", ability:"Renvoie une unité au sol amie non-engagée en Réserve au lieu d'une action."},
       {id:"engbay", name:"Engineering Bay", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"La première Arme à Distance de l'unité Biologique active gagne COUP CRITIQUE (1)."},
       {id:"factory", name:"Factory", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"L'unité Mécanique active résout l'effet SOIN (2)."},
       {id:"orbital", name:"Orbital Command", gas:25, cp:1, unique:true, req:"Basique ×1", ability:"Bloque le déploiement ennemi sur un bord de table choisi jusqu'à la fin du Round."},
@@ -587,7 +603,7 @@ const FACTIONS = {
           {label:"6 modèles (sup 1)", points:170, supply:1},
           {label:"9 modèles (sup 2)", points:220, supply:2}
         ],
-        upgrades:["Combat Shield +20 pts", "Slugthrower +10 pts", "Grenades (Frag) +10 pts", "AGG-12 +10 pts", "Bayonet +20 pts"],
+        upgrades:["Combat Shield +20/+30 pts (petite/grande escouade)", "Slugthrower +10/+20 pts (petite/grande escouade)", "Grenades (Frag) +10 pts", "AGG-12 +10 pts", "Bayonet +20/+30 pts (petite/grande escouade)", "Rocket Launcher +40 pts (Spécialiste)"],
         innate:["Stimpack"]},
       {id:"marauder", name:"Marauder", role:"Basique", traits:"Blindé · Biologique · Sol",
         stats:{speed:"4/7", evade:"6+", armor:"4+", hp:5, size:2}, range:"12\"",
@@ -595,7 +611,7 @@ const FACTIONS = {
           {label:"2 modèles (sup 1)", points:160, supply:1},
           {label:"4 modèles (sup 2)", points:290, supply:2}
         ],
-        upgrades:["Veteran of Tarsonis +20 pts", "Kinetic Foam +20 pts", "Laser Targeting Systems +20 pts"],
+        upgrades:["Veteran of Tarsonis +20/+40 pts (petite/grande escouade)", "Kinetic Foam +20/+40 pts (petite/grande escouade)", "Laser Targeting Systems +20/+40 pts (petite/grande escouade)"],
         innate:["Stimpack","Concussive Shells"]},
       {id:"raynors_raider", name:"Raynor's Raider (Marine)", role:"Basique", unique:true, traits:"Biologique · Léger · Sol",
         stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"12\"",
@@ -608,12 +624,12 @@ const FACTIONS = {
         innate:["Target Lock","Indomitable","Devastating Charge"]},
       {id:"jim_raynor", name:"Jim Raynor", role:"Héros", unique:true, traits:"Biologique · Sol · Unique",
         stats:{speed:"7", evade:"5+", armor:"4+", hp:8, size:"unique"}, range:"18\"",
-        options:[{label:"1 modèle (sup 1)", points:280, supply:1}], upgrades:[],
+        options:[{label:"1 modèle (sup 1)", points:280, supply:1}], upgrades:["C-14 Rifle +0 pts (remplace le Commando Rifle)"],
         innate:["Commander","Freedom Fighters","Orders"]},
       {id:"medic", name:"Medic", role:"Soutien", traits:"Biologique · Léger · Sol",
         stats:{speed:"4/7", evade:"5+", armor:"5+", hp:2, size:2}, range:"Soutien 4-12\"",
         options:[{label:"3 modèles (sup 1)", points:120, supply:1}],
-        upgrades:["Advanced Medic Facilities +60 pts", "A-13 Flash Grenade Launcher +20 pts", "Stabilizer Medpacks +30 pts"],
+        upgrades:["Advanced Medic Facilities +60 pts", "A-13 Flash Grenade Launcher +20 pts", "Stabilizer Medpacks +20 pts"],
         innate:["Restoration","Life Support","Medpack","Optical Flare"]},
       {id:"pdd", name:"Point Defense Drone", role:"Autre", traits:"Blindé · Volant · Mécanique",
         stats:{speed:"—", evade:"6+", armor:"6+", hp:3, size:1}, range:"Soutien",
@@ -642,10 +658,7 @@ const FACTIONS = {
         innate:["Structure","Have a Nice Day"]},
       {id:"spec_ops_marauder", name:"Spec Ops Marauder (Marauder)", role:"Basique", traits:"Blindé · Biologique · Sol",
         stats:{speed:"4/7", evade:"6+", armor:"4+", hp:5, size:2}, range:"Mêlée / 12\"",
-        options:[
-          {label:"1 modèle (sup 0)", points:null, supply:0},
-          {label:"2 modèles (sup 1)", points:230, supply:1}
-        ], upgrades:[],
+        options:[{label:"2 modèles (sup 1)", points:230, supply:1}], upgrades:[],
         innate:["Spec Ops Armour","Commando Stimpack","Magrail Munitions","Suppression Shells"]},
       {id:"raven", name:"Raven", role:"Soutien", traits:"Léger · Mécanique · Volant",
         stats:{speed:"7", evade:"6+", armor:"5+", hp:8, size:"—"}, range:"12\"",
@@ -677,15 +690,15 @@ const FACTIONS = {
       {id:"gateway", name:"Gateway", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Quick Strikes — la première Arme de Corps-à-corps de l'unité active gagne PRÉCISION (2)."},
       {id:"warpgate", name:"Warp Gate", gas:40, cp:1, unique:true, req:"Basique ×2", ability:"Warp In — déploiement au sol depuis un bord non-Entrée, à 10\"+ de l'ennemi (1×/Round)."},
       {id:"gate_chrono", name:"Gate Chronoboosted", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Quick Strikes + Zealous Charge (BUFF Vitesse (2))."},
-      {id:"twilight", name:"Twilight Council", gas:45, cp:1, unique:true, req:"Soutien ×1 · Élite ×1", ability:"Weapons of the Firstborn — l'arme à distance active gagne +4\" de portée / Veil of Shadows — SOIN (2) après un effet PLACE."},
+      {id:"twilight", name:"Twilight Council", gas:40, cp:1, unique:true, req:"Soutien ×1 · Élite ×1", ability:"Weapons of the Firstborn — l'arme à distance active gagne +4\" de portée / Veil of Shadows — SOIN (2) après un effet PLACE."},
       {id:"warpprism", name:"Warp Prism", gas:35, cp:1, unique:true, req:"Basique ×2", ability:"Phase — effet PLACE (3) / Warp Conduit — réserve un renfort au sol en fin de Round."},
-      {id:"nexus", name:"Nexus", gas:35, cp:1, unique:true, req:"Basique ×2", ability:"Strategic Recall — retour en Réserve au lieu d'une action / Ancient Pride — la première arme utilisée gagne INSTANT."},
+      {id:"nexus", name:"Nexus", gas:40, cp:1, unique:true, req:"Basique ×2", ability:"Strategic Recall — retour en Réserve au lieu d'une action / Ancient Pride — la première arme utilisée gagne INSTANT."},
       {id:"forge", name:"Forge", gas:30, cp:1, unique:false, req:"Élite ×1", ability:"Ground Weapons — la première Arme à Distance gagne COUP CRITIQUE (1) / Ground Armor — TOUGH (1) sur un Jet d'Armure."},
       {id:"observer", name:"Observer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Surveillance — retire le statut CACHÉ des ennemis à moins de 6\" d'un Indicateur de Faction / Gravitic Boosters — +1 à la distance de Charge."},
       {id:"powerfield", name:"Power Field", gas:40, cp:1, unique:true, req:"Basique ×1 · Élite ×1 · Héros ×1", ability:"Guardian Shell — l'unité gagne ESQUIVE (2) sur son prochain Jet d'Armure."},
       {id:"overcharged", name:"Overcharged Nexus", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Photon Overcharge — inflige HITS 3 (1) à toute unité ennemie qui entre en jeu hors de son bord d'Entrée / Strategic Recall — retour en Réserve au lieu d'une action."},
       {id:"voidseeker", name:"Void Seeker", gas:40, cp:1, unique:true, req:"Basique ×1 (Nerazim)", ability:"Vague 2. Personal Transport (actif, Phase de Mouvement) — au lieu d'effectuer une action, l'unité au sol active et Non-Engagée retourne en Réserve puis effectue une action de Déploiement / Anakh Su'n (actif, Phase de Mouvement) — cette unité gagne le statut CACHÉ jusqu'à ce qu'elle effectue une autre action."},
-      {id:"roboticsfacility", name:"Robotics Support Bay", gas:30, cp:1, unique:false, req:"Élite ×2", ability:"Vague 2. Plasma Shields (réaction) — à utiliser avant qu'une unité Mécanique et au sol amie fasse un Jet d'Armure. Si cette unité a le statut Bouclier, elle gagne DUR (1) et ESQUIVE (1) pour ce jet."},
+      {id:"roboticsfacility", name:"Robotics Facility", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"Vague 2. Plasma Shields (réaction) — à utiliser avant qu'une unité Mécanique et au sol amie fasse un Jet d'Armure. Si cette unité a le statut Bouclier, elle gagne DUR (1) et ESQUIVE (1) pour ce jet."},
       {id:"templar_archives", name:"Templar Archives", gas:40, cp:1, unique:true, req:"Soutien ×2", ability:"Vague 3. Ancestral Wisdom — une fois par Round, quand une unité de Soutien amie active une Capacité Spéciale à coût en PE, résous cette capacité avec son coût réduit de 1 (minimum 0). Ne pas Épuiser cette carte."}
     ],
     units:[
@@ -713,7 +726,7 @@ const FACTIONS = {
       {id:"sentry", name:"Sentry", role:"Soutien", traits:"Léger · Mécanique · Psionique · Sol",
         stats:{speed:"4/7", evade:"6+", armor:"5+", hp:4, shield:2, size:1}, range:"8\"",
         options:[{label:"2 modèles (sup 1)", points:130, supply:1}],
-        upgrades:["Solid-Field Projectors +20 pts", "Hallucination +30 pts"],
+        upgrades:["Solid-Field Projectors +10 pts", "Hallucination +20 pts"],
         innate:["Restoration","Guardian Shield","Force Field"]},
       {id:"artanis", name:"Artanis", role:"Héros", unique:true, traits:"Biologique · Psionique · Sol",
         stats:{speed:"7", evade:"5+", armor:"4+", hp:8, shield:4, size:2}, range:"Mêlée",
@@ -740,7 +753,7 @@ const FACTIONS = {
       {id:"high_templar", name:"High Templar", role:"Soutien", traits:"Biologique · Léger · Psionique · Sol",
         stats:{speed:"4/7", evade:"6+", armor:"5+", hp:3, shield:3, size:2}, range:"Mêlée / 8\"",
         options:[
-          {label:"2 modèles (sup 1)", points:120, supply:1},
+          {label:"2 modèles (sup 1)", points:130, supply:1},
           {label:"3-4 modèles (sup 2)", points:200, supply:2}
         ],
         upgrades:["Psionic Storm +20/+30 pts (petite/grande escouade)","Farsight +20/+20 pts (petite/grande escouade)"],
@@ -771,10 +784,10 @@ const FACTIONS = {
     ],
     tacticalCards:[
       {id:"spawningpool", name:"Spawning Pool", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Feral Rage — la première Arme de Corps-à-corps active gagne PRÉCISION (2)."},
-      {id:"spawningpool_six", name:"Spawning Pool (Six Pool)", gas:40, cp:2, unique:true, req:"Basique ×2", ability:"Feral Rage + Timing Push (déploiement Zergling hors bord d'Entrée)."},
-      {id:"evochamber", name:"Evolution Chamber", gas:30, cp:1, unique:false, req:"Basique ×1", ability:"Extended Claws (+1 aux jets d'IMPACT) / Carapace (TOUGH (1))."},
+      {id:"spawningpool_six", name:"Spawning Pool (Six Pool)", gas:35, cp:2, unique:true, req:"Basique ×2", ability:"Feral Rage + Timing Push (déploiement Zergling hors bord d'Entrée)."},
+      {id:"evochamber", name:"Evolution Chamber", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Extended Claws (+1 aux jets d'IMPACT) / Carapace (TOUGH (1))."},
       {id:"roachwarren", name:"Roach Warren", gas:25, cp:1, unique:false, req:"Basique ×1", ability:"Nasty Surprise — l'unité au sol active perd le statut Enterré."},
-      {id:"hydraliskden", name:"Hydralisk Den", gas:35, cp:1, unique:false, req:"Élite ×2", ability:"Missile Attacks — la première Arme à Distance active gagne PRÉCISION (1)."},
+      {id:"hydraliskden", name:"Hydralisk Den", gas:30, cp:1, unique:false, req:"Élite ×2", ability:"Missile Attacks — la première Arme à Distance active gagne PRÉCISION (1)."},
       {id:"hatchery", name:"Hatchery", gas:30, cp:1, unique:false, req:"Soutien ×1", ability:"Lie in Wait (statut Enterré) / Creep Spread (pose un Tumeur de Rampant)."},
       {id:"lair", name:"Lair", gas:35, cp:1, unique:true, req:"Basique ×1 · Élite ×1", ability:"Creep Spread / Predation (armes de corps-à-corps gagnent INSTANT)."},
       {id:"overseer", name:"Overseer", gas:25, cp:1, unique:true, req:"Soutien ×1", ability:"Pneumatized Carapace (rejet de D6 sur distance de Charge) / Oversight Mode (retire CACHÉ ennemi)."},
@@ -803,22 +816,22 @@ const FACTIONS = {
         options:[
           {label:"12 modèles (sup 1)", points:210, supply:1},
           {label:"18 modèles (sup 2)", points:260, supply:2}
-        ], upgrades:["Burrow Ambush +20 pts", "Shredding Claws +10 pts", "Adrenal Glands +20 pts"],
+        ], upgrades:["Burrow Ambush +20/+30 pts (petite/grande escouade)", "Shredding Claws +10 pts", "Adrenal Glands +20 pts"],
         innate:["Squadron","Raptor Strain","Adrenal Overload","Devastating Charge","Metabolic Boost"]},
       {id:"roach", name:"Roach", role:"Basique", traits:"Blindé · Biologique · Sol",
         stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
         options:[{label:"3 modèles (sup 1)", points:170, supply:1}],
-        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +10 pts", "Hydriodic Bile +10 pts"],
         innate:["Burrow","Regeneration","Devastating Charge"]},
       {id:"corpser", name:"Corpser (Roach)", role:"Basique", unique:true, traits:"Blindé · Biologique · Sol",
         stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
         options:[{label:"3 modèles (sup 1)", points:220, supply:1}],
-        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +10 pts", "Hydriodic Bile +10 pts"],
         innate:["Burrow","Roachling Infestation","Regeneration","Devastating Charge"]},
       {id:"vile", name:"Vile (Roach)", role:"Basique", traits:"Blindé · Biologique · Sol",
         stats:{speed:"4/7", evade:"5+", armor:"3+", hp:4, size:2}, range:"8\"",
         options:[{label:"3 modèles (sup 1)", points:190, supply:1}],
-        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +20 pts", "Hydriodic Bile +10 pts"],
+        upgrades:["Tunneling Claws +10 pts", "Burrow Ambush +20 pts", "Glial Reconstitution +10 pts", "Hydriodic Bile +10 pts"],
         innate:["Burrow","Debilitating Saliva","Devastating Charge","Regeneration"]},
       {id:"roachling", name:"Roachling", role:"Autre", traits:"Biologique · Léger · Sol",
         stats:{speed:"4/7", evade:"6+", armor:"6+", hp:1, size:1}, range:"Mêlée",
@@ -833,7 +846,7 @@ const FACTIONS = {
         options:[
           {label:"2 modèles (sup 2)", points:140, supply:2},
           {label:"4 modèles (sup 3)", points:260, supply:3}
-        ], upgrades:["Ancillary Carapace +20/+40 pts (petite/grande escouade)", "Lurking +10/+20 pts", "Burrow Ambush +20/+40 pts", "Grooved Spines +20/+40 pts"],
+        ], upgrades:["Ancillary Carapace +20/+30 pts (petite/grande escouade)", "Lurking +10 pts", "Burrow Ambush +20/+40 pts (petite/grande escouade)", "Grooved Spines +20/+30 pts (petite/grande escouade)"],
         innate:["Squadron","Lunge"]},
       {id:"queen", name:"Queen", role:"Soutien", traits:"Blindé · Biologique · Psionique · Sol",
         stats:{speed:"4", evade:"—", armor:"4+", hp:9, size:3}, range:"6-12\"",
@@ -1797,7 +1810,7 @@ function renderFactionCards(){
   let html = f.factionCards.map(fc=>`
     <div class="card-option ${state.factionCardId===fc.id?'selected':''}" onclick="pickFactionCard('${fc.id}')">
       <div class="co-top">
-        <div class="co-name">${fc.name}${fc.unique?' <span style="color:var(--dim);font-size:10px;">(sous-faction)</span>':''}</div>
+        <div class="co-name">${cardNameHtml(state.faction, fc.id, fc.name)}${fc.unique?' <span style="color:var(--dim);font-size:10px;">(sous-faction)</span>':''}</div>
         <div class="co-cp">${fc.cp} ${f.abilityCurrency}</div>
       </div>
       <div class="co-slots">Emplacements : ${fc.slots}</div>
@@ -1830,7 +1843,7 @@ function renderUnitCard(u){
     <div class="unit-card">
       <div class="unit-top">
         <div>
-          <div class="unit-name">${u.name}${u.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
+          <div class="unit-name">${cardNameHtml(state.faction, u.id, u.name)}${u.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
           <div class="unit-traits">${u.traits}</div>
         </div>
         <div class="unit-role">${u.role}</div>
@@ -1964,7 +1977,7 @@ function addUnit(unitId, optIndex){
       const useAlt = optIndex > 0 && parsed.altCost !== null;
       const cost = useAlt ? parsed.altCost : parsed.cost;
       pts += cost || 0;
-      chosenUpgrades.push(parsed.label + (cost?` (+${cost} pts)`:' (coût à vérifier)'));
+      chosenUpgrades.push(parsed.label + (cost!==null && cost!==undefined ?` (+${cost} pts)`:' (coût à vérifier)'));
     });
   }
   state.units.push({unitId, optIndex, points: pts, name: unit.name, label: opt.label, supply: opt.supply, upgrades: chosenUpgrades});
@@ -1995,7 +2008,7 @@ function renderMissions(){
     return `
     <div class="card-option ${sel?'selected':''}" onclick="toggleMission('${m.id}')">
       <div class="co-top">
-        <div class="co-name">${m.name}</div>
+        <div class="co-name">${cardNameHtml('missions', m.id, m.name)}</div>
         <div class="co-cp">${sel?'✓ Sélectionnée':''}</div>
       </div>
       <div class="co-slots">Standard : Longueur ${fmtNum(v.standard.gameLength)} · Supply ${fmtNum(v.standard.supply)} (+${fmtNum(v.standard.reinforcement)}) · fin anticipée à ${fmtNum(v.standard.endLead)}+ VP<br>Skirmish : Longueur ${fmtNum(v.skirmish.gameLength)} · Supply ${fmtNum(v.skirmish.supply)} (+${fmtNum(v.skirmish.reinforcement)}) · fin anticipée à ${fmtNum(v.skirmish.endLead)}+ VP</div>
@@ -2028,7 +2041,7 @@ function renderBattlefields(){
     return `
     <div class="card-option ${sel?'selected':''}" onclick="toggleBattlefield('${b.id}')">
       <div class="co-top">
-        <div class="co-name">${b.name}</div>
+        <div class="co-name">${cardNameHtml('battlefields', b.id, b.name)}</div>
         <div class="co-cp">${sel?'✓':''}</div>
       </div>
       <div class="co-slots">${b.level==='standard'?'Standard Engagement':'Skirmish Level'} · ${b.size}</div>
@@ -2054,7 +2067,7 @@ function renderTactical(){
     return `
     <div class="card-option">
       <div class="co-top">
-        <div class="co-name">${tc.name}${tc.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
+        <div class="co-name">${cardNameHtml(state.faction, tc.id, tc.name)}${tc.unique?' <span style="color:var(--dim);font-size:10px;">(Unique)</span>':''}</div>
         <div class="co-cp">${tc.cp} ${f.abilityCurrency}</div>
       </div>
       <div class="co-slots">Condition suggérée : ${tc.req}</div>
@@ -2101,13 +2114,13 @@ function renderRoster(){
   if(state.factionCardId){
     const fc = f.factionCards.find(c=>c.id===state.factionCardId);
     html += `<div class="roster-group-label">Carte de faction</div>
-      <div class="roster-item"><div class="ri-main"><div class="ri-name">${fc.name}</div><div class="ri-sub">${fc.cp} ${f.abilityCurrency}</div></div></div>`;
+      <div class="roster-item"><div class="ri-main"><div class="ri-name">${cardNameHtml(state.faction, fc.id, fc.name)}</div><div class="ri-sub">${fc.cp} ${f.abilityCurrency}</div></div></div>`;
   }
   if(state.units.length){
     html += `<div class="roster-group-label">Unités (${state.units.length})</div>`;
     html += state.units.map((u,i)=>`
       <div class="roster-item">
-        <div class="ri-main"><div class="ri-name">${u.name}</div><div class="ri-sub">${u.label} · sup ${u.supply}${u.upgrades && u.upgrades.length ? '<br>↳ '+u.upgrades.join(', ') : ''}</div></div>
+        <div class="ri-main"><div class="ri-name">${cardNameHtml(state.faction, u.unitId, u.name)}</div><div class="ri-sub">${u.label} · sup ${u.supply}${u.upgrades && u.upgrades.length ? '<br>↳ '+u.upgrades.join(', ') : ''}</div></div>
         <div style="display:flex;align-items:center;">
           <span class="ri-cost">${u.points} pts</span>
           <button class="rm" onclick="removeUnit(${i})">×</button>
@@ -2118,7 +2131,7 @@ function renderRoster(){
     html += `<div class="roster-group-label">Cartes tactiques (${state.cards.length})</div>`;
     html += state.cards.map((c,i)=>`
       <div class="roster-item">
-        <div class="ri-main"><div class="ri-name">${c.name}</div><div class="ri-sub">${c.cp} ${f.abilityCurrency}</div></div>
+        <div class="ri-main"><div class="ri-name">${cardNameHtml(state.faction, c.cardId, c.name)}</div><div class="ri-sub">${c.cp} ${f.abilityCurrency}</div></div>
         <div style="display:flex;align-items:center;">
           <span class="ri-cost gascost">${c.gas} gaz</span>
           <button class="rm" onclick="removeCard(${i})">×</button>
@@ -2496,14 +2509,20 @@ function setCardsGroup(id){
   renderCardsContent();
 }
 
+function cardBackFile(file){
+  return file.replace(/(\.[a-zA-Z0-9]+)$/, '_back$1');
+}
+
 function cardlibGrid(items, opts){
   opts = opts || {};
   if(!items || !items.length) return '<div class="gallery-empty">Aucune carte dans cette catégorie pour l\'instant.</div>';
   return '<div class="cardlib-grid">' + items.map(it=>{
     const caption = opts.showVariant && it.variant
       ? `<div class="cardlib-variant">${it.variant==='skirmish'?'Skirmish':'Standard'}</div>` : '';
-    return `<div class="cardlib-item" onclick="openCardLightbox('${CARDS_BASE+it.file}','${(it.name||'').replace(/'/g,"\\'")}')">
-      <div class="cardlib-thumb"><img src="${CARDS_BASE+it.file}" loading="lazy" alt="${it.name||''}"></div>
+    const frontSrc = CARDS_BASE+it.file;
+    const backSrc = CARDS_BASE+cardBackFile(it.file);
+    return `<div class="cardlib-item" onclick="openCardLightbox('${frontSrc}','${backSrc}','${(it.name||'').replace(/'/g,"\\'")}')">
+      <div class="cardlib-thumb"><img src="${frontSrc}" loading="lazy" alt="${it.name||''}"></div>
       <div class="cardlib-name">${it.name||''}</div>
       ${caption}
     </div>`;
@@ -2531,13 +2550,131 @@ function renderCardsContent(){
   `;
 }
 
-function openCardLightbox(src, caption){
-  document.getElementById('cardLightboxImg').src = src;
+let cardLightboxState = {front:'', back:'', showingBack:false, caption:'', backMissing:false};
+
+function openCardLightbox(frontSrc, backSrc, caption){
+  cardLightboxState = {front:frontSrc, back:backSrc, showingBack:false, caption:caption||'', backMissing:false};
+  document.getElementById('cardLightboxImg').src = frontSrc;
   document.getElementById('cardLightboxCaption').textContent = caption || '';
+  const flipBtn = document.getElementById('cardLightboxFlipBtn');
+  flipBtn.style.display = backSrc ? 'inline-block' : 'none';
+  flipBtn.textContent = '🔄 Voir le verso';
   document.getElementById('cardLightbox').style.display = 'flex';
+}
+function flipCardLightbox(){
+  if(!cardLightboxState.back || cardLightboxState.backMissing) return;
+  cardLightboxState.showingBack = !cardLightboxState.showingBack;
+  const img = document.getElementById('cardLightboxImg');
+  const btn = document.getElementById('cardLightboxFlipBtn');
+  const cap = document.getElementById('cardLightboxCaption');
+  if(cardLightboxState.showingBack){
+    img.src = cardLightboxState.back;
+    btn.textContent = '🔄 Voir le recto';
+    cap.textContent = (cardLightboxState.caption || '') + ' — Verso';
+  } else {
+    img.src = cardLightboxState.front;
+    btn.textContent = '🔄 Voir le verso';
+    cap.textContent = cardLightboxState.caption || '';
+  }
+}
+function handleCardLightboxImgError(){
+  // Le verso n'existe pas encore pour cette carte : on revient au recto sans casser l'affichage.
+  if(cardLightboxState.showingBack){
+    cardLightboxState.showingBack = false;
+    cardLightboxState.backMissing = true;
+    document.getElementById('cardLightboxImg').src = cardLightboxState.front;
+    document.getElementById('cardLightboxFlipBtn').style.display = 'none';
+    document.getElementById('cardLightboxCaption').textContent = (cardLightboxState.caption || '') + ' — verso pas encore disponible';
+  }
 }
 function closeCardLightbox(){
   document.getElementById('cardLightbox').style.display = 'none';
+}
+
+/* ===================== CARTES CLIQUABLES DANS L'ARMY BUILDER =====================
+   Associe chaque unité / carte de faction / carte tactique / mission / champ de bataille
+   du builder (par son id) à son image dans CARD_LIBRARY. Cliquer sur le nom ouvre la
+   carte originale (recto/verso) dans la visionneuse. Les éléments sans image (pas encore
+   scannés) restent affichés normalement, sans lien. Correspondances vérifiées visuellement
+   sur les images le 13/11/2026 (ex. nova_mode = Nova Assault Mode, pool = Spawning Pool
+   (Six Pool), swarm_brood_instinct = Zerg Swarm, kerrigans_swarm_creep = Kerrigan's Swarm). */
+const CARD_IMAGE_MAP = {
+  terran: {
+    marine:'terran/units/marine.jpg', marauder:'terran/units/marauder.jpg',
+    raynors_raider:'terran/units/raynors_raider_marine.jpg', goliath:'terran/units/goliath.jpg',
+    jim_raynor:'terran/units/jim_raynor.jpg', medic:'terran/units/medic.jpg',
+    pdd:'terran/units/point_defense_drone.jpg', siege_tank:'terran/units/siege_tank.jpg',
+    nova_stealth:'terran/units/nova_stealth_mode.jpg', nova_assault:'terran/units/nova_mode.jpg',
+    holo_decoy:'terran/units/holo_decoy.jpg', sabotage_drone:'terran/units/sabotage_drone.jpg',
+    spec_ops_marauder:'terran/units/spec_ops_marauder.jpg', raven:'terran/units/raven.jpg',
+    auto_turret:'terran/units/auto_turret.jpg',
+    raiders:'terran/tactical/raynors_raiders.jpg', armedforces:'terran/tactical/armed_forces_retreat.jpg',
+    academy:'terran/tactical/academy_advanced_training.jpg', armory:'terran/tactical/armory_vehicle_plating.jpg',
+    barracks:'terran/tactical/barracks.jpg', barracks_proxy:'terran/tactical/barracks_proxy_armed.jpg',
+    barracks_techlab:'terran/tactical/barracks_tech_lab.jpg', dropship:'terran/tactical/dropship_strap_ready.jpg',
+    engbay:'terran/tactical/engineering_bay_infantry.jpg', factory:'terran/tactical/factory_field_repair.jpg',
+    orbital:'terran/tactical/orbital_command_comsat.jpg', supplydepot:'terran/tactical/supply_depot.jpg'
+  },
+  protoss: {
+    zealot:'protoss/units/zealot.jpg', adept:'protoss/units/adept.jpg',
+    praetor_guard:'protoss/units/praetor_guard_zealot.jpg', stalker:'protoss/units/stalker.jpg',
+    sentry:'protoss/units/sentry.jpg', artanis:'protoss/units/artanis.jpg',
+    tassadar:'protoss/units/tassadar.jpg', twilight_templar:'protoss/units/twilight_templar_high.jpg',
+    high_templar:'protoss/units/high_templar.jpg', pylon:'protoss/units/pylon.jpg',
+    daelaam:'protoss/tactical/daelaam_dae_uhl.jpg', khalai:'protoss/tactical/khalai.jpg',
+    gateway:'protoss/tactical/gateway_quick_strikes.jpg', warpgate:'protoss/tactical/warp_gate.jpg',
+    gate_chrono:'protoss/tactical/gate_chronoboosted_zealous.jpg', twilight:'protoss/tactical/twilight_council_veil.jpg',
+    warpprism:'protoss/tactical/warp_prism.jpg', nexus:'protoss/tactical/nexus_ancient_pride.jpg',
+    forge:'protoss/tactical/forge_armor_tough.jpg', observer:'protoss/tactical/observer_surveillance_hidden.jpg',
+    powerfield:'protoss/tactical/power_field_guardian.jpg', overcharged:'protoss/tactical/overcharged_nexus_photon.jpg'
+  },
+  zerg: {
+    zergling:'zerg/units/zergling.jpg', swarmling:'zerg/units/swarmling_zergling.jpg',
+    raptor:'zerg/units/raptor_zergling.jpg', roach:'zerg/units/roach.jpg',
+    corpser:'zerg/units/corpser_roach.jpg', vile:'zerg/units/vile_roach.jpg',
+    roachling:'zerg/units/roachling.jpg', omega_worm:'zerg/units/omega_worm.jpg',
+    hydralisk:'zerg/units/hydralisk.jpg', queen:'zerg/units/queen.jpg',
+    kerrigan:'zerg/units/kerrigan.jpg', kerrigan_raptor:'zerg/units/kerrigan_swarm_raptor.jpg',
+    ravager:'zerg/units/ravager_tactician.jpg', zagara:'zerg/units/zagara_tactician.jpg',
+    defiler:'zerg/units/defiler_lifesaver.jpg', bile_launcher:'zerg/units/bile.jpg',
+    vileling:'zerg/units/vileling_zergling.jpg',
+    zergswarm:'zerg/tactical/swarm_brood_instinct.jpg', kerrigans_swarm:'zerg/tactical/kerrigans_swarm_creep.jpg',
+    zagaras_swarm:'zerg/tactical/zagaras_swarm.jpg',
+    spawningpool:'zerg/tactical/spawning_pool_feral.jpg', spawningpool_six:'zerg/tactical/pool.jpg',
+    evochamber:'zerg/tactical/evolution_chamber_carapace.jpg', roachwarren:'zerg/tactical/roach_warren_nasty.jpg',
+    hydraliskden:'zerg/tactical/hydralisk_den_missile.jpg', hatchery:'zerg/tactical/hatchery_lie_wait.jpg',
+    lair:'zerg/tactical/lair_predation_instant.jpg', overseer:'zerg/tactical/overseer_oversight_mode.jpg',
+    overlord:'zerg/tactical/overlord_ventral_sacs.jpg', accelcreep:'zerg/tactical/accelerating_creep.jpg',
+    malignantcreep:'zerg/tactical/malignant_creep.jpg', cocoon:'zerg/tactical/cocoon_spawn_larva.jpg',
+    defiler_mound:'zerg/tactical/defiler_mound_poisonous.jpg', reactivecreep:'zerg/tactical/reactive_creep.jpg'
+  },
+  missions: {
+    hold_position:'missions/hold_position_standard.jpg', supply_drop:'missions/supply_drop_standard.jpg',
+    gather_the_resources:'missions/gather_the_resources_standard.jpg', frontlines:'missions/frontlines_standard.jpg',
+    divide_and_conquer:'missions/divide_and_conquer_standard.jpg'
+  },
+  battlefields: {
+    gauntlet:'battlefields/gauntlet.jpg', abandoned_camp:'battlefields/abandoned_camp.jpg',
+    typhoon:'battlefields/typhoon.jpg', agria_valley:'battlefields/agria_valley.jpg',
+    breach:'battlefields/breach.jpg', char_plains:'battlefields/char_plains.jpg',
+    acropolis:'battlefields/acropolis.jpg', dirt_side:'battlefields/dirt_side.jpg',
+    proving_grounds:'battlefields/proving_grounds.jpg', frontier:'battlefields/frontier.jpg'
+  }
+};
+
+function escAttr(str){
+  return String(str||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+// Renvoie le nom, rendu cliquable (ouvre la carte originale) si une image existe pour cet id.
+function cardNameHtml(group, id, name){
+  const file = CARD_IMAGE_MAP[group] && CARD_IMAGE_MAP[group][id];
+  if(!file) return name;
+  return `<span class="card-link" title="Voir la carte originale" onclick="event.stopPropagation(); openBuilderCard('${group}','${id}','${escAttr(name)}')">${name}<span class="card-link-icon">🃏</span></span>`;
+}
+function openBuilderCard(group, id, name){
+  const file = CARD_IMAGE_MAP[group] && CARD_IMAGE_MAP[group][id];
+  if(!file) return;
+  openCardLightbox(CARDS_BASE+file, CARDS_BASE+cardBackFile(file), name);
 }
 
 /* ===================== MA COLLECTION ===================== */
